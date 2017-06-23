@@ -1271,12 +1271,18 @@ remote_jar (
   visibility = [ 'PUBLIC' ],
 )
 
-remote_jar (
+# remote_jar (
+#   name = 'floodlightpof',
+#   out = 'floodlightpof-1.0.2.onos.jar',
+#   url = 'mvn:com.github.ustc-infinitelab:floodlightpof:jar:1.0.2.onos',
+#   sha1 = '10206e299133aa087c491c003ea991b68cffb22d',
+#   maven_coords = 'com.github.ustc-infinitelab:floodlightpof:1.0.2.onos',
+#   visibility = [ 'PUBLIC' ],
+# )
+
+prebuilt_jar (
   name = 'floodlightpof',
-  out = 'floodlightpof-1.0.2.onos.jar',
-  url = 'mvn:com.github.ustc-infinitelab:floodlightpof:jar:1.0.2.onos',
-  sha1 = '10206e299133aa087c491c003ea991b68cffb22d',
+  binary_jar = 'floodlightpof-1.0.2.onos.jar',
   maven_coords = 'com.github.ustc-infinitelab:floodlightpof:1.0.2.onos',
   visibility = [ 'PUBLIC' ],
 )
-

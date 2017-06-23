@@ -24,7 +24,6 @@ import org.onosproject.floodlightpof.protocol.OFMatch20;
 import org.onosproject.floodlightpof.protocol.table.OFFlowTable;
 import org.onosproject.floodlightpof.protocol.table.OFTableType;
 import org.onosproject.net.DeviceId;
-import org.onosproject.net.table.DeviceOFTableType;
 import org.onosproject.net.table.DefaultFlowTable;
 import org.onosproject.net.table.FlowTable;
 import org.onosproject.rest.AbstractWebResource;

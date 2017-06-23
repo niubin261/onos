@@ -130,7 +130,7 @@ class RoleManager implements RoleHandler {
                 //FIXME fix below when we actually use generation ids
                 .setGenerationId(U64.ZERO)
                 .build();
-
+        log.info("OFRoleRequest {}", rrm.toString());
         sw.sendRoleRequest(rrm);
         return xid;
     }
@@ -210,7 +210,7 @@ class RoleManager implements RoleHandler {
                     throw new SwitchStateException(msg);
                 }
             }
-            log.debug("Received unexpected RoleReply {} from "
+            log.info("Received unexpected RoleReply {} from "
                     + "Switch: {}. "
                     + "This controller has no current role for this sw. "
                     + "Ignoring ...",
@@ -231,7 +231,7 @@ class RoleManager implements RoleHandler {
         sw.returnRoleReply(expectedRole, receivedRole);
 
         if (expectedRole == receivedRole) {
-            log.debug("Received role reply message from {} that matched "
+            log.info("Received role reply message from {} that matched "
                     + "expected role-reply {} with expectations {}",
                     sw.getStringId(), receivedRole, expectation);
 
@@ -380,6 +380,7 @@ class RoleManager implements RoleHandler {
     @Override
     public RoleReplyInfo extractOFRoleReply(OFRoleReply rrmsg)
             throws SwitchStateException {
+        log.info("OFRoleReply={}", rrmsg);
         OFControllerRole cr = rrmsg.getRole();
         RoleState role = null;
         switch (cr) {
@@ -398,6 +399,7 @@ class RoleManager implements RoleHandler {
                     + "received from switch %s", cr, sw);
             throw new SwitchStateException(msg);
         }
+
 
         return new RoleReplyInfo(role, rrmsg.getGenerationId(), rrmsg.getXid());
     }

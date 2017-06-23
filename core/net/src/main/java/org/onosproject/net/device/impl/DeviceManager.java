@@ -174,14 +174,13 @@ public class DeviceManager
         portOpsIndex.put(PortAnnotationConfig.class, portAnnotationOp);
 
         backgroundService = newSingleThreadScheduledExecutor(
-                groupedThreads("onos/device", "manager-background", log));
+                groupedThreads("onos/device", "device-background", log));
         localNodeId = clusterService.getLocalNode().id();
 
         store.setDelegate(delegate);
         eventDispatcher.addSink(DeviceEvent.class, listenerRegistry);
         mastershipService.addListener(mastershipListener);
         networkConfigService.addListener(networkConfigListener);
-
         backgroundService.scheduleWithFixedDelay(() -> {
             try {
                 mastershipCheck();
@@ -347,11 +346,11 @@ public class DeviceManager
      * Checks if all the reachable devices have a valid mastership role.
      */
     private void mastershipCheck() {
-        log.debug("Checking mastership");
+        log.info("Checking mastership");
         for (Device device : getDevices()) {
             final DeviceId deviceId = device.id();
             MastershipRole myRole = mastershipService.getLocalRole(deviceId);
-            log.trace("Checking device {}. Current role is {}", deviceId, myRole);
+            log.info("Checking device {}. Current role is {}", deviceId, myRole);
             if (!isReachable(deviceId)) {
                 if (myRole != NONE) {
                     // can't be master if device is not reachable
@@ -641,7 +640,7 @@ public class DeviceManager
 
             // FIXME: implement response to this notification
 
-            log.debug("got reply to a role request for {}: asked for {}, and got {}",
+            log.info("got reply to a role request for {}: asked for {}, and got {}",
                       deviceId, requested, response);
 
             if (requested == null && response == null) {
@@ -655,7 +654,7 @@ public class DeviceManager
                 if (Objects.equals(requested, mastershipService.getLocalRole(deviceId))) {
                     return;
                 } else {
-                    log.warn("Role mismatch on {}. set to {}, but store demands {}",
+                    log.info("Role mismatch on {}. set to {}, but store demands {}",
                              deviceId, response, mastershipService.getLocalRole(deviceId));
                     // roleManager got the device to comply, but doesn't agree with
                     // the store; use the store's view, then try to reassert.
@@ -714,7 +713,7 @@ public class DeviceManager
         provider.roleChanged(deviceId, newRole);
 
         if (newRole.equals(MastershipRole.MASTER)) {
-            log.debug("sent TriggerProbe({})", deviceId);
+            log.info("sent TriggerProbe({})", deviceId);
             // only trigger event when request was sent to provider
             provider.triggerProbe(deviceId);
         }
@@ -730,7 +729,6 @@ public class DeviceManager
      */
     private void reassertRole(final DeviceId did,
                               final MastershipRole nextRole) {
-
         MastershipRole myNextRole = nextRole;
         if (myNextRole == NONE) {
             try {
@@ -756,7 +754,7 @@ public class DeviceManager
                     store.markOnline(did);
                 }
                 // TODO: should apply role only if there is mismatch
-                log.debug("Applying role {} to {}", myNextRole, did);
+                log.info("Applying role {} to {}", myNextRole, did);
                 if (!applyRoleAndProbe(did, MASTER)) {
                     log.warn("Unsuccessful applying role {} to {}", myNextRole, did);
                     // immediately failed to apply role
@@ -765,7 +763,7 @@ public class DeviceManager
                 }
                 break;
             case STANDBY:
-                log.debug("Applying role {} to {}", myNextRole, did);
+                log.info("Applying role {} to {}", myNextRole, did);
                 if (!applyRoleAndProbe(did, STANDBY)) {
                     log.warn("Unsuccessful applying role {} to {}", myNextRole, did);
                     // immediately failed to apply role
@@ -811,12 +809,12 @@ public class DeviceManager
         if (!isReachable) {
             // device is not connected to this node
             if (mastershipService.getLocalRole(did) == NONE) {
-                log.debug("Node was instructed to be {} role for {}, "
+                log.info("Node was instructed to be {} role for {}, "
                                   + "but this node cannot reach the device "
                                   + "and role is already None. Ignoring request.",
                           myNextRole, did);
             } else if (myNextRole != NONE) {
-                log.warn("Node was instructed to be {} role for {}, "
+                log.info("Node was instructed to be {} role for {}, "
                                  + "but this node cannot reach the device.  "
                                  + "Relinquishing role.  ",
                          myNextRole, did);
@@ -827,9 +825,15 @@ public class DeviceManager
 
         // device is connected to this node:
         if (store.getDevice(did) != null) {
+            log.info("The MasterShip changed need reassertRole for device: {}", did);
+            try {
+                Thread.sleep(0);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             reassertRole(did, myNextRole);
         } else {
-            log.debug("Device is not yet/no longer in the store: {}", did);
+            log.info("Device is not yet/no longer in the store: {}", did);
         }
     }
 
@@ -842,7 +846,7 @@ public class DeviceManager
                 try {
                     handleMastershipEvent(event);
                 } catch (Exception e) {
-                    log.warn("Failed to handle {}", event, e);
+                    log.info("Failed to handle {}", event, e);
                 }
             });
         }

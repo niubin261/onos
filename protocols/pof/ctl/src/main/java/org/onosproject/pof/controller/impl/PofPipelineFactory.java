@@ -36,7 +36,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 /**
  * Creates a ChannelPipeline for a server-side pof channel.
  */
-public class PofPipelineFactory
+public class  PofPipelineFactory
     implements ChannelPipelineFactory, ExternalResourceReleasable {
 
     private final Logger log = LoggerFactory.getLogger(getClass());

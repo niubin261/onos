@@ -30,3 +30,4 @@ npm-debug.log
 sonar-project.properties
 
 out/
+lib/floodlightpof-1.0.2.onos.jar

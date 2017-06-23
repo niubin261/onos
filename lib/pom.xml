@@ -35,6 +35,7 @@
     <description>Open Network Operating System shared dependencies</description>
 
     <properties>
+        <os.detected.classifier>linux-x86_64</os.detected.classifier>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <onos-build-conf.version>1.11.0-SNAPSHOT</onos-build-conf.version>
         <netty4.version>4.1.5.Final</netty4.version>

@@ -498,8 +498,8 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
                     // a brief period). We might need to see if these errors
                     // persist before we reassert
 
-                    h.sw.handleRole(m);
-                    //h.sw.reassertRole();
+                   // h.sw.handleRole(m);
+                    h.sw.reassertRole();
                 } else if (m.getErrorType() == OFError.OFErrorType.OFPET_FLOW_MOD_FAILED.getValue() &&
                         (m.getErrorCode() ==
                         OFError.OFFlowModFailedCode.OFOFMFC_TABLE_FULL.ordinal())) {
@@ -528,6 +528,7 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
             @Override
             void processOFRoleReply(OFChannelHandler h, OFRoleReply m)
                     throws SwitchStateException {
+                log.info("OFRoleReply {}",m);
                 h.sw.handleRole(m);
             }
 
@@ -885,7 +886,8 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
             }
 
             OFFactory factory = (h.ofVersion == OFVersion.OF_13) ?
-                    h.controller.getOFMessageFactory13() : h.controller.getOFMessageFactory10();
+                    h.controller.getOFMessageFactory13() : h.controller
+                    .getOFMessageFactory10();
                     OFEchoReply reply = factory
                             .buildEchoReply()
                             .setXid(m.getXid())
@@ -894,7 +896,7 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
                     h.channel.write(Collections.singletonList(reply));
             wenjian*/
             OFEchoReply reply = (OFEchoReply) h.factory.getOFMessage(OFType.ECHO_REPLY);
-            reply.setXid(m.getXid());
+//            reply.setXid(m.getXid());
             List<OFMessage> rlist = new ArrayList<OFMessage>(1);
             rlist.add(reply);
             h.channel.write(rlist);

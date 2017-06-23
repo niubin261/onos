@@ -119,7 +119,7 @@ public class NewDistributedFlowTableStore
     private final Logger log = getLogger(getClass());
 
     private static final int MESSAGE_HANDLER_THREAD_POOL_SIZE = 8;
-    private static final boolean DEFAULT_BACKUP_ENABLED = true;
+    private static final boolean DEFAULT_BACKUP_ENABLED = false;
     private static final boolean DEFAULT_PERSISTENCE_ENABLED = false;
     private static final int DEFAULT_BACKUP_PERIOD_MILLIS = 2000;
     private static final long FLOW_TABLE_STORE_TIMEOUT_MILLIS = 5000;
@@ -357,11 +357,9 @@ public class NewDistributedFlowTableStore
         clusterCommunicator.addSubscriber(
                 FLOW_TABLE_BACKUP, SERIALIZER::decode, flowTable::onBackupReceipt, SERIALIZER::encode, executor);
         clusterCommunicator.addSubscriber(
-                GET_NEW_GLOBAL_TABLEID, SERIALIZER::decode, flowTable::getGlobalFlowTableId,
-                SERIALIZER::encode, executor);
+                GET_NEW_GLOBAL_TABLEID, SERIALIZER::decode, flowTable::getGlobalFlowTableId, SERIALIZER::encode, executor);
         clusterCommunicator.addSubscriber(
-                GET_NEW_GLOBAL_ENTRYID, SERIALIZER::decode, flowTable::getFlowEntryId,
-                SERIALIZER::encode, executor);
+                GET_NEW_GLOBAL_ENTRYID, SERIALIZER::decode, flowTable::getFlowEntryId, SERIALIZER::encode, executor);
     }
 
     private void unregisterMessageHandlers() {
@@ -1248,14 +1246,13 @@ public class NewDistributedFlowTableStore
             FLOWTABLES.remove(deviceId);
         }
     }
-
 //    @Override
 //    public FlowTableEvent updateTableStatistics(DeviceId deviceId,
 //                                               List<TableStatisticsEntry> tableStats) {
 //        deviceTableStats.put(deviceId, tableStats);
 //        return null;
 //    }
-
+//
 //    @Override
 //    public Iterable<TableStatisticsEntry> getTableStatistics(DeviceId deviceId) {
 //        NodeId master = mastershipService.getMasterFor(deviceId);
