@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.onlab.util.ImmutableByteSequence.copyFrom;
+import static org.onosproject.bmv2.api.runtime.Bmv2MatchParam.Type.*;
 import static org.onosproject.bmv2.ctl.Bmv2TExceptionParser.parseTException;
 
 /**

@@ -19,6 +19,7 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" scope="TEST" name="Maven: com.google.guava:guava-testlib:22.0" level="project" />
     <orderEntry type="module" module-name="onos-bmv2-provider-device" />
     <orderEntry type="module" module-name="onos-core-common" />
     <orderEntry type="module" module-name="onos-bmv2-protocol-api" />

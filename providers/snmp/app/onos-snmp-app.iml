@@ -8,6 +8,7 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" scope="TEST" name="Maven: com.google.guava:guava-testlib:22.0" level="project" />
     <orderEntry type="module" module-name="onos-snmp-provider-device" />
     <orderEntry type="module" module-name="onos-snmp-api" />
     <orderEntry type="module" module-name="onos-snmp-ctl" />

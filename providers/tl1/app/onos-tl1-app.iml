@@ -19,6 +19,7 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" scope="TEST" name="Maven: com.google.guava:guava-testlib:22.0" level="project" />
     <orderEntry type="module" module-name="onos-tl1-provider-device" />
     <orderEntry type="module" module-name="onos-tl1-api" />
     <orderEntry type="library" name="Maven: io.netty:netty-handler:4.1.5.Final" level="project" />

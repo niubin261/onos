@@ -18,6 +18,9 @@ package org.onosproject.net.table;
 import org.onosproject.floodlightpof.protocol.table.OFFlowTableResource;
 import org.onosproject.floodlightpof.protocol.table.OFTableType;
 import org.onosproject.net.DeviceId;
+
+
+import org.onosproject.net.flow.FlowEntry;
 import org.onosproject.net.flow.FlowRule;
 import org.onosproject.store.Store;
 
@@ -60,6 +63,13 @@ public interface FlowTableStore extends Store<FlowTableBatchEvent, FlowTableStor
      * @return the flow tables
      */
     Iterable<FlowTable> getFlowTables(DeviceId deviceId);
+//    /**
+//     * Returns the flow tables associated with a device.
+//     *
+//     * @param flowTable the flowtable
+//     * @return the flow entry
+//     */
+//    Iterable<FlowRule> getCommFlowEntries(FlowTable flowTable);
 
     /**
      * // TODO: Better description of method behavior.
@@ -108,6 +118,7 @@ public interface FlowTableStore extends Store<FlowTableBatchEvent, FlowTableStor
      * @return flow_removed event, or null if nothing removed
      */
     FlowTableEvent removeFlowTable(FlowTable table);
+
 
     /**
      * Marks a flow table as PENDING_ADD during retry.

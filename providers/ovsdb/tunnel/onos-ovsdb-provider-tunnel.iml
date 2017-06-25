@@ -21,6 +21,7 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" scope="TEST" name="Maven: com.google.guava:guava-testlib:22.0" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: org.easymock:easymock:3.4" level="project" />
     <orderEntry type="library" name="Maven: org.objenesis:objenesis:2.2" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: junit:junit:4.12" level="project" />

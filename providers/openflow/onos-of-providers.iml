@@ -8,6 +8,13 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.onosproject:openflowj:3.2.0.onos" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.google.code.findbugs:annotations:3.0.1u2" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: net.jcip:jcip-annotations:1.0" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: io.netty:netty-all:4.0.31.Final" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: ch.qos.logback:logback-core:1.1.10" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: ch.qos.logback:logback-classic:1.1.10" level="project" />
+    <orderEntry type="library" scope="TEST" name="Maven: com.google.guava:guava-testlib:22.0" level="project" />
     <orderEntry type="module" module-name="onos-of-api" />
     <orderEntry type="library" name="Maven: io.netty:netty:3.10.5.Final" level="project" />
     <orderEntry type="module" module-name="onos-of-api" scope="TEST" production-on-test="" />

@@ -270,8 +270,7 @@ class RoleManager implements RoleHandler {
     public RoleReplyInfo extractOFRoleReply(OFRoleReply rrmsg)
             throws SwitchStateException {
 
-       // OFControllerRole cr = rrmsg.getOfControllerRole();
-        OFControllerRole cr = OFControllerRole.ROLE_MASTER;
+        OFControllerRole cr = rrmsg.getOfControllerRole();
         RoleState role = null;
         switch (cr) {
         case ROLE_EQUAL:
