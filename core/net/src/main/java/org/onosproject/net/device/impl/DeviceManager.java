@@ -346,11 +346,11 @@ public class DeviceManager
      * Checks if all the reachable devices have a valid mastership role.
      */
     private void mastershipCheck() {
-        log.info("Checking mastership");
+        log.debug("Checking mastership");
         for (Device device : getDevices()) {
             final DeviceId deviceId = device.id();
             MastershipRole myRole = mastershipService.getLocalRole(deviceId);
-            log.info("Checking device {}. Current role is {}", deviceId, myRole);
+            log.debug("Checking device {}. Current role is {}", deviceId, myRole);
             if (!isReachable(deviceId)) {
                 if (myRole != NONE) {
                     // can't be master if device is not reachable

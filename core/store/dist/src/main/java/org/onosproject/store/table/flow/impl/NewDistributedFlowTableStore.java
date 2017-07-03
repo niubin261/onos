@@ -73,6 +73,7 @@ import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.serializers.KryoSerializer;
 import org.onosproject.store.serializers.StoreSerializer;
 import org.onosproject.store.serializers.custom.DistributedStoreSerializers;
+import org.onosproject.store.service.ConsistentMap;
 import org.onosproject.store.service.EventuallyConsistentMap;
 import org.onosproject.store.service.EventuallyConsistentMapEvent;
 import org.onosproject.store.service.EventuallyConsistentMapListener;
@@ -144,8 +145,12 @@ public class NewDistributedFlowTableStore
     private boolean persistenceEnabled = DEFAULT_PERSISTENCE_ENABLED;
 
     private InternalFlowTable flowTable = new InternalFlowTable();
+    private static Map<DeviceId, Map<FlowTableId, Map<Integer, FlowRule>>>
+            flowEntries = Maps.newConcurrentMap();
+
     private static Map<DeviceId, Map<FlowTableId, List<Integer>>>
             freeFlowEntryIds = Maps.newConcurrentMap();
+
     private static Map<DeviceId, Map<FlowTableId, Integer>>
             flowEntryCount = Maps.newConcurrentMap();
 
@@ -157,9 +162,12 @@ public class NewDistributedFlowTableStore
 
     private static Map<DeviceId, Map<OFTableType, List<Byte>>>
             freeFlowTableIDListMap = Maps.newConcurrentMap();
-
-    private static Map<DeviceId, Map<FlowTableId, Map<Integer, FlowRule>>>
-            flowEntries = Maps.newConcurrentMap();
+//    private ConsistentMap<DeviceId,Map<FlowTableId, Map<Integer, FlowRule>>>flowEntries;
+//    private ConsistentMap<DeviceId,Map<FlowTableId,List<Integer>>>freeFlowEntryIds;
+//    private ConsistentMap<DeviceId,Map<FlowTableId,Integer>>flowEntryCount;
+//    private ConsistentMap<DeviceId,Map<OFTableType,Byte>>flowTableNoBaseMap;
+//    private ConsistentMap<DeviceId,Map<OFTableType,Byte>>flowTableNoMap;
+//    private ConsistentMap<DeviceId,Map<OFTableType,List<Byte>>>freeFlowTableIDListMap;
 
     private static final Map<DeviceId, Map<FlowTableId, StoredFlowTableEntry>>
             FLOWTABLES = Maps.newConcurrentMap();
@@ -191,12 +199,12 @@ public class NewDistributedFlowTableStore
 
     private Map<Long, NodeId> pendingResponses = Maps.newConcurrentMap();
     private ExecutorService messageHandlingExecutor;
-
     private ScheduledFuture<?> backupTask;
     private final ScheduledExecutorService backupSenderExecutor =
             Executors.newSingleThreadScheduledExecutor(groupedThreads("onos/table", "backup-sender", log));
 
     private EventuallyConsistentMap<DeviceId, List<TableStatisticsEntry>> deviceTableStats;
+
     private final EventuallyConsistentMapListener<DeviceId, List<TableStatisticsEntry>> tableStatsListener =
             new InternalTableStatsListener();
 
@@ -209,6 +217,8 @@ public class NewDistributedFlowTableStore
             serializerPool = KryoNamespace.newBuilder()
                     .register(DistributedStoreSerializers.STORE_COMMON)
                     .nextId(DistributedStoreSerializers.STORE_CUSTOM_BEGIN)
+//                    .register(DefaultFlowTableEntry.class)
+//                    .register(FlowTableEntry.FlowTableState.class)
                     .build();
         }
     };
@@ -250,6 +260,21 @@ public class NewDistributedFlowTableStore
                 .withTimestampProvider((k, v) -> new WallClockTimestamp())
                 .withTombstonesDisabled()
                 .build();
+//        flowEntries = storageService.<DeviceId,Map<FlowTableId, Map<Integer, FlowRule>>>consistentMapBuilder()
+//                .withName("onos-flow-entries")
+//                .withSerializer(SERIALIZER)
+//                .withRelaxedReadConsistency()
+//                .build();
+//        freeFlowEntryIds = storageService.<DeviceId,Map<FlowTableId,List<Integer>>>consistentMapBuilder()
+//                .withName("onos-freeflow-entryids")
+//                .withSerializer(SERIALIZER)
+//                .withRelaxedReadConsistency()
+//                .build();
+//        flowEntryCount = storageService.<DeviceId,Map<FlowTableId,Integer>>consistentMapBuilder()
+//                .withName("onos-freeflow-entryids")
+//                .withSerializer(SERIALIZER)
+//                .withRelaxedReadConsistency()
+//                .build();
         deviceTableStats.addListener(tableStatsListener);
 
         logConfig("Started");
@@ -390,12 +415,12 @@ public class NewDistributedFlowTableStore
 
         List<Integer> ids = new ArrayList<>();
         Map<FlowTableId, List<Integer>> tids = new ConcurrentHashMap<>();
-        freeFlowEntryIds.putIfAbsent(deviceId, tids);
+        freeFlowEntryIds.putIfAbsent(deviceId, tids);//initialization map all is null
 
         Map<FlowTableId, Map<Integer, FlowRule>> tfs = new ConcurrentHashMap<>();
         flowEntries.putIfAbsent(deviceId, tfs);
     }
-
+    //if pof switch removed all the map well be cleared
     @Override
     public void removeSwitchStore(DeviceId deviceId) {
 
@@ -423,6 +448,7 @@ public class NewDistributedFlowTableStore
 
     @Override
     public void setFlowTableNoBase(DeviceId deviceId, OFFlowTableResource of) {
+        log.info("@niubin setFlowTableNoBase");
         log.info("+++++ setFlowTableNoBase for device {}", deviceId.toString());
         byte base = 0;
         OFTableResource tableResource;
@@ -948,11 +974,11 @@ public class NewDistributedFlowTableStore
             DeviceId deviceId = deviceOFTableType.getDeviceId();
 
             OFTableType ofTableType = tableType;
-            log.info("getGlobalFlowTableIOFTableType getglobaltableid");
             if (null == freeFlowTableIDListMap.get(deviceId)
                     || null == freeFlowTableIDListMap.get(deviceId).get(ofTableType)
                     || 0 == freeFlowTableIDListMap.get(deviceId).get(ofTableType).size()) {
-
+                log.info("getGlobalFlowTableIOFTableType flowTableNoMap:{}",deviceId);
+                log.info("@niubin flowTableNoMap:{}",flowTableNoMap.toString());
                 newFlowTableID = flowTableNoMap.get(deviceId).get(ofTableType);
                 flowTableNoMap.get(deviceId).replace(ofTableType, Byte.valueOf((byte) (newFlowTableID + 1)));
                 log.info("get new flow table id from flowTableNoMap: {}", newFlowTableID);
@@ -982,7 +1008,7 @@ public class NewDistributedFlowTableStore
                     || 0 == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).size()) {
 
                 log.info("++++ getNewFlowEntryId2");
-                log.info("tableid is {}" + FlowTableId.valueOf(tableId));
+                log.info("tableid is {}" , FlowTableId.valueOf(tableId));
                 newFlowEntryId = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
                 addFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
                 log.info("get new flow table id from flowEntryCount: {}", newFlowEntryId);
@@ -1154,6 +1180,9 @@ public class NewDistributedFlowTableStore
             if (stored != null) {
                 log.info("+++++ Remove the table!");
                 FLOWTABLES.get(table.deviceId()).remove(table.id());
+                log.info("@niubin freeFlowtableIDListMap {} ",freeFlowTableIDListMap);
+                log.info("@niubin TableType {} ",freeFlowTableIDListMap.get(table.deviceId()).
+                        get(table.flowTable().getTableType()));
                 freeFlowTableIDListMap.get(table.deviceId()).get(table.flowTable()
                         .getTableType()).add((byte) table.id().value());
                 Collections.sort(freeFlowTableIDListMap.get(table.deviceId()).get(table.flowTable().getTableType()));

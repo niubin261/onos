@@ -8,4 +8,4 @@ export OCN="192.168.109.142"
 export ONOS_GROUP=ubuntu
 export ONOS_USER=ubuntu
 
-export ONOS_APPS="drivers,pof"
+export ONOS_APPS="drivers,pof-base"

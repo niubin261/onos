@@ -293,11 +293,11 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
          *
          * Note: Actually, we would an OFFlowTableResource message.
          */
-
         WAIT_RESOURCE_REPORT(false) {
             @Override
             void processOFStatisticsReply(OFChannelHandler h, OFMessage m)
                     throws SwitchStateException {
+                log.info("WAIT_RESOURCE_REPORT OFMessage={}",m);
 
                 OFDescriptionStatistics drep = new OFDescriptionStatistics();
                 drep.setManufacturerDescription("Huawei. Inc");
@@ -370,6 +370,7 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
                         if (!h.sw.connectSwitch()) {
                             disconnectDuplicate(h);
                         }
+                        log.info("@niubin handlePendingResourceReportMessage(h)");
                         //this method will initialize some maps in table stores.
                         handlePendingResourceReportMessage(h);
                         handlePendingPortStatusMessages(h);
@@ -673,10 +674,12 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
 
 
         protected void handlePendingResourceReportMessage(OFChannelHandler h){
+            log.info("@niubin handlePendingResourceReportMessage(h)--1");
             if(h.pendingResourceReportMsg.isEmpty()){
                 return;
             }else{
                 for(OFFlowTableResource tableResource : h.pendingResourceReportMsg){
+                    log.info("@niubin handlePendingResourceReportMessage(h)--2");
                     h.sw.setOFTableResource(tableResource);
                     h.sw.handleMessage(tableResource);
                 }

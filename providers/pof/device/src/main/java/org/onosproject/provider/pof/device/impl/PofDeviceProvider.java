@@ -231,16 +231,6 @@ public class PofDeviceProvider extends AbstractProvider implements DeviceProvide
         BasicFactory fact = sw.factory();
         /*modified by hdy*/
         sw.sendMsg(fact.getOFMessage(OFType.FEATURES_REQUEST));
-/*        switch (fact.getVersion()) {
-            case OF_10:
-                sw.sendMsg(fact.buildFeaturesRequest().setXid(0).build());
-                break;
-            case OF_13:
-                sw.sendMsg(fact.buildPortDescStatsRequest().setXid(0).build());
-                break;
-            default:
-                log.warn("Unhandled protocol version");
-        }*/
     }
 
     @Override

@@ -25,6 +25,7 @@ import org.onosproject.floodlightpof.protocol.instruction.OFInstructionType;
 import org.onosproject.floodlightpof.protocol.table.OFFlowTable;
 import org.onosproject.floodlightpof.protocol.table.OFTableMod;
 import org.onosproject.floodlightpof.protocol.table.OFTableType;
+import org.onosproject.net.table.DefaultFlowTableEntry;
 import org.onosproject.net.table.DeviceOFTableType;
 import org.onosproject.net.table.DeviceTableId;
 import org.onosproject.net.flow.criteria.PofCriterion;
@@ -35,6 +36,7 @@ import org.onosproject.net.flow.instructions.PofInstruction;
 import org.onosproject.net.table.DefaultFlowTable;
 import org.onosproject.net.table.FlowTableBatchEntry;
 import org.onosproject.net.table.FlowTableBatchOperation;
+import org.onosproject.net.table.FlowTableEntry;
 import org.onosproject.net.table.FlowTableId;
 
 import org.onosproject.store.impl.MastershipBasedTimestamp;
@@ -56,7 +58,7 @@ public final class DistributedStoreSerializers {
             .register(Timestamped.class)
             .register(new MastershipBasedTimestampSerializer(), MastershipBasedTimestamp.class)
             .register(WallClockTimestamp.class)
-
+            .register(DefaultFlowTableEntry.class)
             .register(FlowTableBatchEntry.class)
             .register(FlowTableBatchEntry.FlowTableOperation.class)
             .register(FlowTableBatchOperation.class)

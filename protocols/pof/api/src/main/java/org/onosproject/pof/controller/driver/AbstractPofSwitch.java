@@ -290,7 +290,9 @@ public abstract class AbstractPofSwitch extends AbstractHandlerBehaviour
     @Override
     public final void handleMessage(OFMessage m) {
         //modify by hhb
-        if (this.role == RoleState.MASTER || m instanceof OFPortStatus) {
+        if (this.role == RoleState.MASTER || m instanceof OFPortStatus || m instanceof OFFlowTableResource) {
+            log.info("@niubin handlePendingResourceReportMessage(h)--3");
+            log.info("DeviceId {} ");
             this.agent.processMessage(dpid, m);
         } else {
             log.trace("Dropping received message {}, was not MASTER", m);
