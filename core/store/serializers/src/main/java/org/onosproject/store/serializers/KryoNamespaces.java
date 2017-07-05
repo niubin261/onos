@@ -51,6 +51,8 @@ import org.onosproject.core.DefaultApplicationId;
 import org.onosproject.core.GroupId;
 import org.onosproject.core.Version;
 import org.onosproject.event.Change;
+import org.onosproject.floodlightpof.protocol.table.OFFlowTable;
+import org.onosproject.floodlightpof.protocol.table.OFTableType;
 import org.onosproject.incubator.net.domain.IntentDomainId;
 import org.onosproject.mastership.MastershipTerm;
 import org.onosproject.net.Annotations;
@@ -591,6 +593,7 @@ public final class KryoNamespaces {
             .register(OFActionOutput.class)
             .register(OFActionType.class)
             .register(OFInstructionType.class)
+
             .build();
 
     /**
