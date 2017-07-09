@@ -54,7 +54,7 @@ public interface PofPacketContext {
 
     /**
      * Build the packet out in response to this packet in event.
-     *
+     * @param actionList
      */
     void build(List<OFAction> actionList);
 
@@ -62,6 +62,7 @@ public interface PofPacketContext {
      * Build the packet out in response to this packet in event.
      *
      * @param ethFrame the actual packet to send out.
+     * @param actionList
      */
     void build(Ethernet ethFrame, List<OFAction> actionList);
 

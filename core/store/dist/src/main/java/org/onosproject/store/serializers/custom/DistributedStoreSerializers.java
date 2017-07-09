@@ -41,6 +41,7 @@ import org.onosproject.net.table.FlowTableId;
 
 import org.onosproject.store.impl.MastershipBasedTimestamp;
 import org.onosproject.store.impl.Timestamped;
+import org.onosproject.store.primitives.ConsistentMapBackedJavaMap;
 import org.onosproject.store.service.WallClockTimestamp;
 import org.onosproject.store.serializers.KryoNamespaces;
 import org.onlab.util.KryoNamespace;
@@ -82,6 +83,7 @@ public final class DistributedStoreSerializers {
             .register(OFActionType.class)
             .register(OFActionOutput.class)
             .register(OFInstructionType.class)
+            .register(ConsistentMapBackedJavaMap.class)
             .build();
 
     // avoid instantiation

@@ -82,12 +82,14 @@ public interface PofSwitch {
     //hdy
     /**
      * set flow table resource Map.
+     * @param ofTableResource pofmessage
      * */
     void setOFTableResource(OFMessage ofTableResource);
 
     //hdy
     /**
      * get Map<OFTableType, OFTableResource>.
+     * @return Map<OFTableType, OFTableRssource></>
      * */
     Map<OFTableType, OFTableResource> getOFTableResourceMap();
 

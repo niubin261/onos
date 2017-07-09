@@ -16,12 +16,7 @@
 package org.onosproject.pof.controller.driver;
 
 
-/*wenjian
-import org.onosproject.openflow.controller.RoleState;
-import org.projectfloodlight.openflow.types.U64;
-*/
 
-import org.onosproject.floodlightpof.util.U64;
 import org.onosproject.pof.controller.RoleState;
 
 /**
