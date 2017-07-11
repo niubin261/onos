@@ -1036,9 +1036,7 @@ public class NewDistributedFlowTableStore
             if (null == freeFlowTableIDListMap.get(deviceId)
                     || null == freeFlowTableIDListMap.get(deviceId).get(ofTableType)
                     || 0 == freeFlowTableIDListMap.get(deviceId).get(ofTableType).size()) {
-
                 newFlowTableID = flowTableNoMap.get(deviceId).get(ofTableType);
-
                 for(OFTableType ofTableTypeTmp: flowTableNoMap.get(deviceId).keySet()){
                     if(ofTableTypeTmp.equals(ofTableType)){
                         this.flowTableNoTmpMap.put(ofTableTypeTmp, Byte.valueOf((byte)(newFlowTableID + 1)));
@@ -1047,7 +1045,6 @@ public class NewDistributedFlowTableStore
                     }
                 }
                 flowTableNoMap.put(deviceId, this.flowTableNoTmpMap);
-
             } else {
                 newFlowTableID = freeFlowTableIDListMap.get(deviceId).get(ofTableType).remove(0);
             }
@@ -1234,7 +1231,7 @@ public class NewDistributedFlowTableStore
 //                        //TODO the key is not updated
 //                        return (StoredFlowTableEntry) table;
 //                    });
-
+            flowTablesTmpMap.putAll(flowTablesMap.get(deviceId));
             flowTablesTmpMap.put(flowTableId,(StoredFlowTableEntry)table);
             flowTablesMap.put(deviceId,flowTablesTmpMap);
 
@@ -1254,7 +1251,9 @@ public class NewDistributedFlowTableStore
 
             if (stored != null) {
                 log.info("+++++ Remove the table!");
-                flowTablesMap.get(table.deviceId()).remove(table.id());
+                flowTablesTmpMap.putAll(flowTablesMap.get(deviceId));
+                flowTablesTmpMap.remove(table.id());
+                flowTablesMap.put(deviceId,flowTablesTmpMap);
                 log.info("@niubin TableType {} ", freeFlowTableIDListMap.get(table.deviceId()).
                         get(table.flowTable().getTableType()));
                 freeFlowTableIDListMap.get(table.deviceId()).get(table.flowTable()
@@ -1263,6 +1262,7 @@ public class NewDistributedFlowTableStore
                                           .get(table.flowTable().getTableType()));
                 if (flowEntries.get(table.deviceId()) != null) {
                     flowEntries.get(table.deviceId()).remove(table.id());
+
                     flowEntryCountMap.get(table.deviceId()).remove(table.id());
                     freeFlowEntryIdMap.get(table.deviceId()).remove(table.id());
                 }
