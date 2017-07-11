@@ -259,8 +259,6 @@ public class PofControllerImpl implements PofController {
             //added by hdy to process table resource
             case RESOURCE_REPORT:
                 for (PofSwitchListener l : ofSwitchListener) {
-                    log.info("@niubin handlePendingResourceReportMessage(h)--4");
-                    log.info("++++ pofctlimpl RESOURCE_REPORT");
                     l.setTableResource(dpid, (OFFlowTableResource) msg);
                 }
                 break;

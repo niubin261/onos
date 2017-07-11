@@ -431,8 +431,10 @@ public class DistributedFlowRuleStore
             log.info("++++ judge whether this flowRule belongs to POF");
             if (deviceId.uri().getScheme().equals("pof")) {
                 FlowRule flowRule = operation.getOperations().get(0).target();
+                log.info("++++ the flowrule belongs to POF and the next step is getFlowTableInternal");
                 FlowTable flowTable = flowTableStore.getFlowTableInternal(flowRule.deviceId(),
                         FlowTableId.valueOf(flowRule.tableId()));
+                log.info("POF FlowTable:{}",flowTable);
                 Set<Criterion> criterions = flowRule.selector().criteria();
                 Optional<Criterion> criterionOptional = criterions.stream()
                         .filter(criterion -> criterion.type() != Criterion.Type.POF)
@@ -440,6 +442,7 @@ public class DistributedFlowRuleStore
                 if (flowTable != null && !criterionOptional.isPresent()) {
                     storeBatchInternal(operation);
                 }
+
             } else {
                 storeBatchInternal(operation);
             }

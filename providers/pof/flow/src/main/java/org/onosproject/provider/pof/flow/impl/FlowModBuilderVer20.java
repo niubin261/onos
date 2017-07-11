@@ -88,6 +88,9 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
             log.info("++++ flow table is null");
         }
         this.flowTable = flowtable;
+        log.info("flowrule:{}\nflowtable:{}",flowRule,flowtable);
+        log.info("offlowtable:{}",this.flowTable.flowTable());
+        log.info("flowtable matchfilednum:{}",flowTable.flowTable().getMatchFieldNum());
     }
 
 
@@ -293,6 +296,7 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
             if (criterion instanceof PofCriterion) {
                 PofCriterion pofCriterion = (PofCriterion) criterion;
                 List<Criterion> list = pofCriterion.list();
+                log.info("list.size={}",list.size());
                 if (matchFieldNum != list.size()) {
                     log.error("match field number in the entry should be {}", matchFieldNum);
                     return new ArrayList<>();

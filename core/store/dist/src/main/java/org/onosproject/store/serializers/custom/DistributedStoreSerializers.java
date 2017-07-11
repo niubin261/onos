@@ -83,7 +83,9 @@ public final class DistributedStoreSerializers {
             .register(OFActionType.class)
             .register(OFActionOutput.class)
             .register(OFInstructionType.class)
+            .register(FlowTableEntry.FlowTableState.class)
             .register(ConsistentMapBackedJavaMap.class)
+
             .build();
 
     // avoid instantiation
