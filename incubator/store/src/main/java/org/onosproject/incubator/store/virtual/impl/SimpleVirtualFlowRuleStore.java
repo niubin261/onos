@@ -186,7 +186,7 @@ public class SimpleVirtualFlowRuleStore
         List<FlowRuleBatchEntry> toAdd = new ArrayList<>();
         List<FlowRuleBatchEntry> toRemove = new ArrayList<>();
 
-        for (FlowRuleBatchEntry entry : batchOperation.getOperations()) {
+        /*for (FlowRuleBatchEntry entry : batchOperation.getOperations()) {
             final FlowRule flowRule = entry.target();
             if (entry.operator().equals(FlowRuleBatchEntry.FlowRuleOperation.ADD)) {
                 if (!getFlowEntries(networkId, flowRule.deviceId(),
@@ -210,7 +210,7 @@ public class SimpleVirtualFlowRuleStore
                     new CompletedBatchOperation(true, Collections.emptySet(),
                                                 batchOperation.deviceId())));
             return;
-        }
+        }*/
 
         SettableFuture<CompletedBatchOperation> r = SettableFuture.create();
         final int futureId = localBatchIdGen.incrementAndGet();
@@ -220,7 +220,7 @@ public class SimpleVirtualFlowRuleStore
         toAdd.addAll(toRemove);
         notifyDelegate(networkId, FlowRuleBatchEvent.requested(
                 new FlowRuleBatchRequest(batchOperation.id(),
-                                         Sets.newHashSet(toAdd)), batchOperation.deviceId()));
+                                         Sets.newHashSet(batchOperation.getOperations())), batchOperation.deviceId()));
 
     }
 
