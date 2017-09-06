@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-present Open Networking Laboratory
+ * Copyright 2015-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,10 @@ import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
+import org.onlab.util.ItemNotFoundException;
 import org.onosproject.core.CoreService;
+import org.onosproject.net.driver.Driver;
+import org.onosproject.net.driver.DriverService;
 import org.onosproject.net.meter.Band;
 import org.onosproject.net.meter.DefaultBand;
 import org.onosproject.net.meter.DefaultMeter;
@@ -87,7 +90,6 @@ import static org.slf4j.LoggerFactory.getLogger;
 @Component(immediate = true, enabled = true)
 public class OpenFlowMeterProvider extends AbstractProvider implements MeterProvider {
 
-
     private final Logger log = getLogger(getClass());
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
@@ -98,6 +100,9 @@ public class OpenFlowMeterProvider extends AbstractProvider implements MeterProv
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected CoreService coreService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected DriverService driverService;
 
     private MeterProviderService providerService;
 
@@ -251,11 +256,31 @@ public class OpenFlowMeterProvider extends AbstractProvider implements MeterProv
                 sw.factory().getVersion() == OFVersion.OF_11 ||
                 sw.factory().getVersion() == OFVersion.OF_12 ||
                 NO_METER_SUPPORT.contains(sw.deviceType()) ||
-                sw.softwareDescription().equals("OF-DPA 2.0")) {
+                !isMeterCapable(sw)) {
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * Determine whether the given switch is meter-capable.
+     *
+     * @param sw switch
+     * @return the boolean value of meterCapable property, or true if it is not configured.
+     */
+    private boolean isMeterCapable(OpenFlowSwitch sw) {
+        Driver driver;
+
+        try {
+            driver = driverService.getDriver(DeviceId.deviceId(Dpid.uri(sw.getDpid())));
+        } catch (ItemNotFoundException e) {
+            driver = driverService.getDriver(sw.manufacturerDescription(), sw.hardwareDescription(),
+                    sw.softwareDescription());
+        }
+
+        String isMeterCapable = driver.getProperty(METER_CAPABLE);
+        return isMeterCapable == null || Boolean.parseBoolean(isMeterCapable);
     }
 
     private void pushMeterStats(Dpid dpid, OFStatsReply msg) {

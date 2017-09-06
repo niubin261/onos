@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,14 @@ import com.google.common.annotations.Beta;
  */
 @Beta
 public interface PiHeaderModel {
+
+    /**
+     * Returns the name of this header instance.
+     *
+     * @return a string value
+     */
+    String name();
+
     /**
      * Returns the type of this header instance.
      *

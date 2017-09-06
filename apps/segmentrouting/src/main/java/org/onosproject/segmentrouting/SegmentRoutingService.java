@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-present Open Networking Laboratory
+ * Copyright 2015-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@ package org.onosproject.segmentrouting;
 
 import org.onlab.packet.IpPrefix;
 import org.onosproject.net.DeviceId;
-import org.onosproject.segmentrouting.storekey.NeighborSetNextObjectiveStoreKey;
+import org.onosproject.segmentrouting.grouphandler.NextNeighbors;
+import org.onosproject.segmentrouting.storekey.DestinationSetNextObjectiveStoreKey;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -128,9 +129,18 @@ public interface SegmentRoutingService {
     ImmutableMap<DeviceId, EcmpShortestPathGraph> getCurrentEcmpSpg();
 
     /**
-     * Returns the neighborSet-NextObjective store contents.
+     * Returns the destinatiomSet-NextObjective store contents.
      *
-     * @return current contents of the neighborSetNextObjectiveStore
+     * @return current contents of the destinationSetNextObjectiveStore
      */
-    ImmutableMap<NeighborSetNextObjectiveStoreKey, Integer> getNeighborSet();
+    ImmutableMap<DestinationSetNextObjectiveStoreKey, NextNeighbors> getDestinationSet();
+
+    /**
+     * Triggers the verification of all ECMP groups in the specified device.
+     * Adjusts the group buckets if verification finds that there are more or less
+     * buckets than what should be there.
+     *
+     * @param id the device identifier
+     */
+    void verifyGroups(DeviceId id);
 }

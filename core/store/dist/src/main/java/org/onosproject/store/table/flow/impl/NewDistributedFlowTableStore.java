@@ -502,7 +502,7 @@ public class NewDistributedFlowTableStore
         this.freeFlowTableIdListMap.put(deviceId, freeIDListMap);
 
         Map<FlowTableId, Map<Integer, FlowRule>> tfs = new ConcurrentHashMap<>();//the max size of table no is 128
-        for ( byte i = 0; i< 128; i++) {
+        for ( byte i = 0; i< base; i++) {
 
             Map<Integer, FlowRule>emptyTmp=new HashMap<>();
             tfs.putIfAbsent(new FlowTableId(i),emptyTmp);

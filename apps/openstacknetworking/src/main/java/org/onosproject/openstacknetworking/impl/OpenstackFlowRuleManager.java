@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -148,7 +148,8 @@ public class OpenstackFlowRuleManager implements OpenstackFlowRuleService {
         setupJumpTable(deviceId);
     }
 
-    private void connectTables(DeviceId deviceId, int fromTable, int toTable) {
+    @Override
+    public void connectTables(DeviceId deviceId, int fromTable, int toTable) {
         TrafficSelector.Builder selector = DefaultTrafficSelector.builder();
         TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
 
@@ -167,7 +168,8 @@ public class OpenstackFlowRuleManager implements OpenstackFlowRuleService {
         applyRule(flowRule, true);
     }
 
-    private void setUpTableMissEntry(DeviceId deviceId, int table) {
+    @Override
+    public void setUpTableMissEntry(DeviceId deviceId, int table) {
         TrafficSelector.Builder selector = DefaultTrafficSelector.builder();
         TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
 

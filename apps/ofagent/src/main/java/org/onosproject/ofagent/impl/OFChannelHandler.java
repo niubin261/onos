@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,6 +123,10 @@ public final class OFChannelHandler extends ChannelDuplexHandler {
                         break;
                     case ROLE_REQUEST:
                         handler.ofSwitch.processRoleRequest(handler.channel, msg);
+                        break;
+                    case PACKET_OUT:
+                        // TODO: check if this is lldp - ignore if it is not lldp
+                        handler.ofSwitch.processLldp(handler.channel, msg);
                         break;
                     case ERROR:
                         handler.logErrorClose((OFErrorMsg) msg);

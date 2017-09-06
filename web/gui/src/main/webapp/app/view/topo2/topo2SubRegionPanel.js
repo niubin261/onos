@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,8 +41,8 @@
                 'Id': data.get('id'),
                 'Type': data.get('nodeType'),
                 'Number of Devices': data.get('nDevs'),
-                'Number of Hosts': data.get('nHosts')
-            }
+                'Number of Hosts': data.get('nHosts'),
+            },
         };
     }
 
@@ -103,9 +103,9 @@
                 hide: hide,
                 toggle: toggle,
                 destroy: destroy,
-                isVisible: function () { return subRegionPanel.isVisible(); }
+                isVisible: function () { return subRegionPanel.isVisible(); },
             };
-        }
+        },
     ]);
 
 })();

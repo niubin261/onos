@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ package org.onosproject.drivers.netconf;
 import com.google.common.base.Preconditions;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.behaviour.ConfigGetter;
-import org.onosproject.netconf.TargetConfig;
 import org.onosproject.net.driver.AbstractHandlerBehaviour;
 import org.onosproject.net.driver.DriverHandler;
+import org.onosproject.netconf.DatastoreId;
 import org.onosproject.netconf.NetconfController;
 import org.slf4j.Logger;
 
@@ -56,7 +56,7 @@ public class NetconfConfigGetter extends AbstractHandlerBehaviour
             return controller.getDevicesMap().
                     get(ofDeviceId).
                     getSession().
-                    getConfig(TargetConfig.valueOf(type));
+                    getConfig(DatastoreId.datastore(type));
         } catch (IOException e) {
             log.error("Configuration could not be retrieved {}",
                       e.getMessage());

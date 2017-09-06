@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -338,7 +338,9 @@ public class TranscodingAsyncConsistentMap<K1, V1, K2, V2> implements AsyncConsi
 
         @Override
         public void event(MapEvent<K2, V2> event) {
-            listener.event(new MapEvent<K1, V1>(event.name(),
+            listener.event(new MapEvent<K1, V1>(
+                    event.type(),
+                    event.name(),
                     keyDecoder.apply(event.key()),
                     event.newValue() != null ? event.newValue().map(valueDecoder) : null,
                     event.oldValue() != null ? event.oldValue().map(valueDecoder) : null));

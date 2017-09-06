@@ -1,9 +1,13 @@
 SRC_DEPS = [
     '//lib:CORE_DEPS',
-    '//lib:floodlightpof',
+    '//lib:JACKSON',
+    '//lib:METRICS',
     '//incubator/api:onos-incubator-api',
     '//core/api:onos-api',
     '//utils/rest:onlab-rest',
+    '//lib:joda-time',
+    '//lib:floodlightpof',
+
 ]
 
 TEST_DEPS = [

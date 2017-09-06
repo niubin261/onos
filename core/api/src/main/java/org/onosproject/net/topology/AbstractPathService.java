@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -286,7 +286,7 @@ public abstract class AbstractPathService
         }
         if (dstLink != NOT_HOST) {
             links.add(dstLink);
-            cost = cost.merge(weigher.weight(new DefaultTopologyEdge(null, null, srcLink)));
+            cost = cost.merge(weigher.weight(new DefaultTopologyEdge(null, null, dstLink)));
         }
         return new DefaultPath(PID, links, cost);
     }

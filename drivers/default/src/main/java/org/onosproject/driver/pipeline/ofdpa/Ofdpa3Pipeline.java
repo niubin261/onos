@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -155,7 +155,7 @@ public class Ofdpa3Pipeline extends Ofdpa2Pipeline {
             }
             // 0x0000XXXX is UNI interface.
             if (portCriterion.port().toLong() > MPLS_UNI_PORT_MAX) {
-                log.error("Filering Objective invalid logical port {}",
+                log.error("Filtering Objective invalid logical port {}",
                           portCriterion.port().toLong());
                 fail(filteringObjective, ObjectiveError.BADPARAMS);
                 return;

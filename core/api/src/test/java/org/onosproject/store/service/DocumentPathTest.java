@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,8 @@ public class DocumentPathTest {
         assertEquals(path.pathElements(), Arrays.asList("root", "a", "b"));
         assertEquals(path("root.a"), path.parent());
         assertEquals(path("b"), path.childPath());
+        path = DocumentPath.from("root", "a", "b");
+        assertEquals(path.pathElements(), Arrays.asList("root", "a", "b"));
     }
 
     @Test

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-present Open Networking Laboratory
+ * Copyright 2015-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.onosproject.netconf.ctl.impl;
 import com.google.common.annotations.Beta;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.channel.ClientChannel;
@@ -27,6 +28,10 @@ import org.apache.sshd.client.future.OpenFuture;
 import org.apache.sshd.client.session.ClientSession;
 import org.apache.sshd.common.FactoryManager;
 import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.PEMKeyPair;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.onosproject.netconf.DatastoreId;
 import org.onosproject.netconf.NetconfDeviceInfo;
 import org.onosproject.netconf.NetconfDeviceOutputEvent;
@@ -37,24 +42,26 @@ import org.onosproject.netconf.NetconfSession;
 import org.onosproject.netconf.NetconfSessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.CharArrayReader;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.List;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
+import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -114,12 +121,17 @@ public class NetconfSessionMinaImpl implements NetconfSession {
     private static final Pattern SESSION_ID_REGEX_PATTERN = Pattern.compile(SESSION_ID_REGEX);
     private static final String RSA = "RSA";
     private static final String DSA = "DSA";
+    private static final String HASH = "#";
+    private static final String LF = "\n";
+    private static final String MSGLEN_REGEX_PATTERN = "\n#\\d+\n";
+    private static final String NETCONF_10_CAPABILITY = "urn:ietf:params:netconf:base:1.0";
+    private static final String NETCONF_11_CAPABILITY = "urn:ietf:params:netconf:base:1.1";
 
     private String sessionID;
     private final AtomicInteger messageIdInteger = new AtomicInteger(1);
     protected final NetconfDeviceInfo deviceInfo;
     private Iterable<String> onosCapabilities =
-            Collections.singletonList("urn:ietf:params:netconf:base:1.0");
+            ImmutableList.of(NETCONF_10_CAPABILITY, NETCONF_11_CAPABILITY);
 
     /* NOTE: the "serverHelloResponseOld" is deprecated in 1.10.0 and should eventually be removed */
     @Deprecated
@@ -136,6 +148,10 @@ public class NetconfSessionMinaImpl implements NetconfSession {
     private final Collection<NetconfSession> children =
             new CopyOnWriteArrayList<>();
 
+    private int connectTimeout;
+    private int replyTimeout;
+    private int idleTimeout;
+
 
     private ClientChannel channel = null;
     private ClientSession session = null;
@@ -146,10 +162,28 @@ public class NetconfSessionMinaImpl implements NetconfSession {
         this.deviceInfo = deviceInfo;
         replies = new ConcurrentHashMap<>();
         errorReplies = new ArrayList<>();
+
+        startConnection();
+    }
+
+    public NetconfSessionMinaImpl(NetconfDeviceInfo deviceInfo, List<String> capabilities) throws NetconfException {
+        this.deviceInfo = deviceInfo;
+        replies = new ConcurrentHashMap<>();
+        errorReplies = new ArrayList<>();
+        setOnosCapabilities(capabilities);
         startConnection();
     }
 
     private void startConnection() throws NetconfException {
+        connectTimeout = deviceInfo.getConnectTimeoutSec().orElse(
+                                NetconfControllerImpl.netconfConnectTimeout);
+        replyTimeout = deviceInfo.getReplyTimeoutSec().orElse(
+                                NetconfControllerImpl.netconfReplyTimeout);
+        idleTimeout = deviceInfo.getIdleTimeoutSec().orElse(
+                                NetconfControllerImpl.netconfIdleTimeout);
+        log.info("Connecting to {} with timeouts C:{}, R:{}, I:{}", deviceInfo,
+                connectTimeout, replyTimeout, idleTimeout);
+
         try {
             startClient();
         } catch (IOException e) {
@@ -159,11 +193,10 @@ public class NetconfSessionMinaImpl implements NetconfSession {
 
     private void startClient() throws IOException {
         client = SshClient.setUpDefaultClient();
-        int replyTimeoutSec = NetconfControllerImpl.netconfIdleTimeout;
         client.getProperties().putIfAbsent(FactoryManager.IDLE_TIMEOUT,
-                TimeUnit.SECONDS.toMillis(replyTimeoutSec));
+                TimeUnit.SECONDS.toMillis(idleTimeout));
         client.getProperties().putIfAbsent(FactoryManager.NIO2_READ_TIMEOUT,
-                TimeUnit.SECONDS.toMillis(replyTimeoutSec + 15L));
+                TimeUnit.SECONDS.toMillis(idleTimeout + 15L));
         client.start();
         client.setKeyPairProvider(new SimpleGeneratorHostKeyProvider());
         startSession();
@@ -172,42 +205,35 @@ public class NetconfSessionMinaImpl implements NetconfSession {
     private void startSession() throws IOException {
         final ConnectFuture connectFuture;
         connectFuture = client.connect(deviceInfo.name(),
-                                       deviceInfo.ip().toString(),
-                                       deviceInfo.port())
-                .verify(NetconfControllerImpl.netconfConnectTimeout, TimeUnit.SECONDS);
+                deviceInfo.ip().toString(),
+                deviceInfo.port())
+                .verify(connectTimeout, TimeUnit.SECONDS);
         session = connectFuture.getSession();
         //Using the device ssh key if possible
         if (deviceInfo.getKey() != null) {
-            ByteBuffer buf = StandardCharsets.UTF_8.encode(CharBuffer.wrap(deviceInfo.getKey()));
-            byte[] byteKey = new byte[buf.limit()];
-            buf.get(byteKey);
-            PublicKey key;
-            try {
-                key = getPublicKey(byteKey, RSA);
-            } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+            try (PEMParser pemParser = new PEMParser(new CharArrayReader(deviceInfo.getKey()))) {
+                JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME);
                 try {
-                    key = getPublicKey(byteKey, DSA);
-                } catch (NoSuchAlgorithmException | InvalidKeySpecException e1) {
+                    KeyPair kp = converter.getKeyPair((PEMKeyPair) pemParser.readObject());
+                    session.addPublicKeyIdentity(kp);
+                } catch (IOException e) {
                     throw new NetconfException("Failed to authenticate session with device " +
-                                                       deviceInfo + "check key to be the " +
-                                                       "proper DSA or RSA key", e1);
+                            deviceInfo + "check key to be a valid key", e);
                 }
             }
-            //privateKye can set tu null because is not used by the method.
-            session.addPublicKeyIdentity(new KeyPair(key, null));
         } else {
             session.addPasswordIdentity(deviceInfo.password());
         }
-        session.auth().verify(NetconfControllerImpl.netconfConnectTimeout, TimeUnit.SECONDS);
+        session.auth().verify(connectTimeout, TimeUnit.SECONDS);
         Set<ClientSession.ClientSessionEvent> event = session.waitFor(
                 ImmutableSet.of(ClientSession.ClientSessionEvent.WAIT_AUTH,
-                                ClientSession.ClientSessionEvent.CLOSED,
-                                ClientSession.ClientSessionEvent.AUTHED), 0);
+                        ClientSession.ClientSessionEvent.CLOSED,
+                        ClientSession.ClientSessionEvent.AUTHED), 0);
 
         if (!event.contains(ClientSession.ClientSessionEvent.AUTHED)) {
             log.debug("Session closed {} {}", event, session.isClosed());
             throw new NetconfException("Failed to authenticate session with device " +
-                                               deviceInfo + "check the user/pwd or key");
+                    deviceInfo + "check the user/pwd or key");
         }
         openChannel();
     }
@@ -224,14 +250,14 @@ public class NetconfSessionMinaImpl implements NetconfSession {
     private void openChannel() throws IOException {
         channel = session.createSubsystemChannel("netconf");
         OpenFuture channelFuture = channel.open();
-        if (channelFuture.await(NetconfControllerImpl.netconfConnectTimeout, TimeUnit.SECONDS)) {
+        if (channelFuture.await(connectTimeout, TimeUnit.SECONDS)) {
             if (channelFuture.isOpened()) {
                 streamHandler = new NetconfStreamThread(channel.getInvertedOut(), channel.getInvertedIn(),
-                                                        channel.getInvertedErr(), deviceInfo,
-                                                        new NetconfSessionDelegateImpl(), replies);
+                        channel.getInvertedErr(), deviceInfo,
+                        new NetconfSessionDelegateImpl(), replies);
             } else {
                 throw new NetconfException("Failed to open channel with device " +
-                                                   deviceInfo);
+                        deviceInfo);
             }
             sendHello();
         }
@@ -251,13 +277,13 @@ public class NetconfSessionMinaImpl implements NetconfSession {
             // interleave supported and existing filter is NOT "no filtering"
             // and was requested with different filtering schema
             log.info("Cannot use existing session for subscription {} ({})",
-                     deviceInfo, filterSchema);
+                    deviceInfo, filterSchema);
             openNewSession = true;
         }
 
         if (openNewSession) {
             log.info("Creating notification session to {} with filter {}",
-                     deviceInfo, filterSchema);
+                    deviceInfo, filterSchema);
             NetconfSession child = new NotificationSession(deviceInfo);
 
             child.addDeviceOutputListener(new NotificationForwarder());
@@ -271,7 +297,7 @@ public class NetconfSessionMinaImpl implements NetconfSession {
         String reply = sendRequest(createSubscriptionString(filterSchema));
         if (!checkReply(reply)) {
             throw new NetconfException("Subscription not successful with device "
-                                               + deviceInfo + " with reply " + reply);
+                    + deviceInfo + " with reply " + reply);
         }
         subscriptionConnected = true;
     }
@@ -335,7 +361,7 @@ public class NetconfSessionMinaImpl implements NetconfSession {
             sessionID = sessionIDMatcher.group(1);
         } else {
             throw new NetconfException("Missing SessionID in server hello " +
-                                               "reponse.");
+                    "reponse.");
         }
 
     }
@@ -391,13 +417,47 @@ public class NetconfSessionMinaImpl implements NetconfSession {
 
     @Override
     public String requestSync(String request) throws NetconfException {
-        if (!request.contains(ENDPATTERN)) {
-            request = request + NEW_LINE + ENDPATTERN;
-        }
         String reply = sendRequest(request);
         checkReply(reply);
         return reply;
     }
+
+
+    /**
+     * Validate and format netconf message.
+     *
+     * @param message to format
+     * @return formated message
+     */
+    private String formatNetconfMessage(String message) {
+        if (deviceCapabilities.contains(NETCONF_11_CAPABILITY)) {
+            message = formatChunkedMessage(message);
+        } else {
+            if (!message.contains(ENDPATTERN)) {
+                message = message + NEW_LINE + ENDPATTERN;
+            }
+        }
+        return  message;
+    }
+
+    /**
+     * Validate and format message according to chunked framing mechanism.
+     *
+     * @param message to format
+     * @return formated message
+     */
+    private String formatChunkedMessage(String message) {
+        if (message.endsWith(ENDPATTERN)) {
+            // message given had Netconf 1.0 EOM pattern -> remove
+            message = message.substring(0, message.length() - ENDPATTERN.length());
+        }
+        if (!message.startsWith(LF + HASH)) {
+            // chunk encode message
+            message = LF + HASH + message.getBytes(UTF_8).length + LF + message + LF + HASH + HASH + LF;
+        }
+        return message;
+    }
+
 
     @Override
     @Deprecated
@@ -405,11 +465,28 @@ public class NetconfSessionMinaImpl implements NetconfSession {
         return streamHandler.sendMessage(request);
     }
 
+    @Override
+    public int timeoutConnectSec() {
+        return connectTimeout;
+    }
+
+    @Override
+    public int timeoutReplySec() {
+        return replyTimeout;
+    }
+
+    @Override
+    public int timeoutIdleSec() {
+        return idleTimeout;
+    }
+
     private CompletableFuture<String> request(String request, int messageId) {
         return streamHandler.sendMessage(request, messageId);
     }
 
     private String sendRequest(String request) throws NetconfException {
+        // FIXME probably chunk-encoding too early
+        request = formatNetconfMessage(request);
         return sendRequest(request, false);
     }
 
@@ -419,19 +496,22 @@ public class NetconfSessionMinaImpl implements NetconfSession {
         if (!isHello) {
             messageId = messageIdInteger.getAndIncrement();
         }
-        request = formatRequestMessageId(request, messageId);
+        // FIXME potentially re-writing chunked encoded String?
         request = formatXmlHeader(request);
+        request = formatRequestMessageId(request, messageId);
         CompletableFuture<String> futureReply = request(request, messageId);
-        int replyTimeout = NetconfControllerImpl.netconfReplyTimeout;
         String rp;
         try {
+            log.debug("Sending request to NETCONF with timeout {} for {}",
+                    replyTimeout, deviceInfo.name());
             rp = futureReply.get(replyTimeout, TimeUnit.SECONDS);
             replies.remove(messageId); // Why here???
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new NetconfException("Interrupted waiting for reply for request" + request, e);
         } catch (TimeoutException e) {
-            throw new NetconfException("Timed out waiting for reply for request " + request, e);
+            throw new NetconfException("Timed out waiting for reply for request " +
+                    request + " after " + replyTimeout + " sec.", e);
         } catch (ExecutionException e) {
             log.warn("Closing session {} for {} due to unexpected Error", sessionID, deviceInfo, e);
             try {
@@ -460,19 +540,38 @@ public class NetconfSessionMinaImpl implements NetconfSession {
         if (request.contains(MESSAGE_ID_STRING)) {
             //FIXME if application provides his own counting of messages this fails that count
             request = request.replaceFirst(MESSAGE_ID_STRING + EQUAL + NUMBER_BETWEEN_QUOTES_MATCHER,
-                                           MESSAGE_ID_STRING + EQUAL + "\"" + messageId + "\"");
+                    MESSAGE_ID_STRING + EQUAL + "\"" + messageId + "\"");
         } else if (!request.contains(MESSAGE_ID_STRING) && !request.contains(HELLO)) {
             //FIXME find out a better way to enforce the presence of message-id
             request = request.replaceFirst(END_OF_RPC_OPEN_TAG, "\" " + MESSAGE_ID_STRING + EQUAL + "\""
                     + messageId + "\"" + ">");
+        }
+        request = updateRequestLenght(request);
+        return request;
+    }
+
+    private String updateRequestLenght(String request) {
+        if (request.contains(LF + HASH + HASH + LF)) {
+            int oldLen = Integer.parseInt(request.split(HASH)[1].split(LF)[0]);
+            String rpcWithEnding = request.substring(request.indexOf('<'));
+            String firstBlock = request.split(MSGLEN_REGEX_PATTERN)[1].split(LF + HASH + HASH + LF)[0];
+            int newLen = 0;
+            newLen = firstBlock.getBytes(UTF_8).length;
+            if (oldLen != newLen) {
+                return LF + HASH + newLen + LF + rpcWithEnding;
+            }
         }
         return request;
     }
 
     private String formatXmlHeader(String request) {
         if (!request.contains(XML_HEADER)) {
-            //FIXME if application provieds his own XML header of different type there is a clash
-            request = XML_HEADER + "\n" + request;
+            //FIXME if application provides his own XML header of different type there is a clash
+            if (request.startsWith(LF + HASH)) {
+                request = request.split("<")[0] + XML_HEADER + request.substring(request.split("<")[0].length());
+            } else {
+                request = XML_HEADER + "\n" + request;
+            }
         }
         return request;
     }
@@ -562,7 +661,9 @@ public class NetconfSessionMinaImpl implements NetconfSession {
 
     @Override
     public boolean editConfig(String newConfiguration) throws NetconfException {
-        newConfiguration = newConfiguration + ENDPATTERN;
+        if (!newConfiguration.endsWith(ENDPATTERN)) {
+            newConfiguration = newConfiguration + ENDPATTERN;
+        }
         return checkReply(sendRequest(newConfiguration));
     }
 
@@ -613,14 +714,14 @@ public class NetconfSessionMinaImpl implements NetconfSession {
                               String newConfiguration)
             throws NetconfException {
         return bareCopyConfig(netconfTargetConfig.asXml(),
-                              normalizeCopyConfigParam(newConfiguration));
+                normalizeCopyConfigParam(newConfiguration));
     }
 
     @Override
     public boolean copyConfig(String netconfTargetConfig,
                               String newConfiguration) throws NetconfException {
         return bareCopyConfig(normalizeCopyConfigParam(netconfTargetConfig),
-                              normalizeCopyConfigParam(newConfiguration));
+                normalizeCopyConfigParam(newConfiguration));
     }
 
     /**
@@ -668,7 +769,7 @@ public class NetconfSessionMinaImpl implements NetconfSession {
     public boolean deleteConfig(DatastoreId netconfTargetConfig) throws NetconfException {
         if (netconfTargetConfig.equals(DatastoreId.RUNNING)) {
             log.warn("Target configuration for delete operation can't be \"running\"",
-                     netconfTargetConfig);
+                    netconfTargetConfig);
             return false;
         }
         StringBuilder rpc = new StringBuilder(XML_HEADER);
@@ -743,18 +844,6 @@ public class NetconfSessionMinaImpl implements NetconfSession {
     @Override
     public Set<String> getDeviceCapabilitiesSet() {
         return Collections.unmodifiableSet(deviceCapabilities);
-    }
-
-    @Deprecated
-    @Override
-    public String getServerCapabilities() {
-        return serverHelloResponseOld;
-    }
-
-    @Deprecated
-    @Override
-    public void setDeviceCapabilities(List<String> capabilities) {
-        onosCapabilities = capabilities;
     }
 
     @Override
@@ -852,11 +941,11 @@ public class NetconfSessionMinaImpl implements NetconfSession {
         public void notify(NetconfDeviceOutputEvent event) {
             Optional<Integer> messageId = event.getMessageID();
             log.debug("messageID {}, waiting replies messageIDs {}", messageId,
-                      replies.keySet());
+                    replies.keySet());
             if (!messageId.isPresent()) {
                 errorReplies.add(event.getMessagePayload());
                 log.error("Device {} sent error reply {}",
-                          event.getDeviceInfo(), event.getMessagePayload());
+                        event.getDeviceInfo(), event.getMessagePayload());
                 return;
             }
             CompletableFuture<String> completedReply =

@@ -1,11 +1,11 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,6 +40,7 @@ import org.onosproject.store.service.IllegalDocumentModificationException;
 import org.onosproject.store.service.MapEvent;
 import org.onosproject.store.service.MapEventListener;
 import org.onosproject.store.service.NoSuchDocumentPathException;
+import org.onosproject.store.service.Ordering;
 import org.onosproject.store.service.Serializer;
 import org.onosproject.store.service.StorageService;
 import org.onosproject.store.service.Versioned;
@@ -102,6 +103,7 @@ public class DistributedDynamicConfigStore
                 .withSerializer(Serializer.using(kryoBuilder.build()))
                 .withName("config-key-store")
                 .withRelaxedReadConsistency()
+                .withOrdering(Ordering.INSERTION)
                 .buildDocumentTree();
         objectStore = storageService.<String, LeafNode>consistentMapBuilder()
                 .withSerializer(Serializer.using(kryoBuilder.build()))
@@ -197,9 +199,11 @@ public class DistributedDynamicConfigStore
     }
 
     private Boolean addKey(String path, DataNode.Type type) {
-        Boolean stat = false;
-        CompletableFuture<Boolean> ret = keystore.create(DocumentPath.from(path), type);
-        return complete(ret);
+        if (completeVersioned(keystore.get(DocumentPath.from(path))) != null) {
+            completeVersioned(keystore.set(DocumentPath.from(path), type));
+            return true;
+        }
+        return complete(keystore.create(DocumentPath.from(path), type));
     }
 
     @Override

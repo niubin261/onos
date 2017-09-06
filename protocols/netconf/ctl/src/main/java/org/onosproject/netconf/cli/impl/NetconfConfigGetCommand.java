@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ public class NetconfConfigGetCommand extends AbstractShellCommand {
             print("%s", res);
         } catch (IOException e) {
             log.error("Configuration could not be retrieved", e);
-            print("Error occured retrieving configuration");
+            print("Error occurred retrieving configuration");
         }
     }
 

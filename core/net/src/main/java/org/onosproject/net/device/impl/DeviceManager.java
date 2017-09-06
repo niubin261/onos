@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-present Open Networking Laboratory
+ * Copyright 2014-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,11 @@ import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.joda.time.DateTime;
+import org.onlab.util.KryoNamespace;
 import org.onlab.util.Tools;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.NodeId;
+import org.onosproject.incubator.net.config.basics.PortDescriptionsConfig;
 import org.onosproject.mastership.MastershipEvent;
 import org.onosproject.mastership.MastershipListener;
 import org.onosproject.mastership.MastershipService;
@@ -66,6 +68,10 @@ import org.onosproject.net.provider.AbstractListenerProviderRegistry;
 import org.onosproject.net.provider.AbstractProviderService;
 import org.onosproject.net.provider.Provider;
 import org.onosproject.net.provider.ProviderId;
+import org.onosproject.store.cluster.messaging.ClusterCommunicationService;
+import org.onosproject.store.cluster.messaging.MessageSubject;
+import org.onosproject.store.serializers.KryoNamespaces;
+import org.onosproject.store.service.Serializer;
 import org.slf4j.Logger;
 
 import java.util.Collection;
@@ -79,13 +85,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Multimaps.newListMultimap;
 import static com.google.common.collect.Multimaps.synchronizedListMultimap;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.onlab.util.Tools.groupedThreads;
 import static org.onosproject.net.MastershipRole.MASTER;
@@ -109,6 +118,7 @@ public class DeviceManager
     private static final String DEVICE_DESCRIPTION_NULL = "Device description cannot be null";
     private static final String PORT_DESCRIPTION_NULL = "Port description cannot be null";
     private static final String PORT_DESC_LIST_NULL = "Port description list cannot be null";
+    private static final String EVENT_NON_MASTER = "Non-master node cannot handle this event";
 
     private final Logger log = getLogger(getClass());
 
@@ -136,7 +146,10 @@ public class DeviceManager
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected NetworkConfigService networkConfigService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ClusterCommunicationService communicationService;
 
+    private ExecutorService portReqeustExecutor;
     /**
      * List of all registered PortConfigOperator.
      */
@@ -151,6 +164,16 @@ public class DeviceManager
 
     // not part of portOps. must be executed at the end
     private PortAnnotationOperator portAnnotationOp;
+
+    private static final MessageSubject PORT_UPDOWN_SUBJECT =
+            new MessageSubject("port-updown-req");
+
+    private static final Serializer SERIALIZER = Serializer.using(
+            KryoNamespace.newBuilder()
+                    .register(KryoNamespaces.API)
+                    .register(InternalPortUpDownEvent.class)
+                    .nextId(KryoNamespaces.BEGIN_USER_CUSTOM_ID)
+                    .build("DeviceManager"));
 
     /**
      * Local storage for connectivity status of devices.
@@ -189,6 +212,15 @@ public class DeviceManager
                 log.error("Exception thrown during integrity check", e);
             }
         }, 1, 1, TimeUnit.MINUTES);
+
+        portReqeustExecutor = newSingleThreadExecutor();
+
+        communicationService.<InternalPortUpDownEvent>addSubscriber(
+                PORT_UPDOWN_SUBJECT,
+                SERIALIZER::decode,
+                this::handlePortRequest,
+                portReqeustExecutor);
+
         log.info("Started");
     }
 
@@ -199,6 +231,8 @@ public class DeviceManager
         store.unsetDelegate(delegate);
         mastershipService.removeListener(mastershipListener);
         eventDispatcher.removeSink(DeviceEvent.class);
+        communicationService.removeSubscriber(PORT_UPDOWN_SUBJECT);
+        portReqeustExecutor.shutdown();
         log.info("Stopped");
     }
 
@@ -327,19 +361,49 @@ public class DeviceManager
         }
     }
 
-    @Override
-    public void changePortState(DeviceId deviceId, PortNumber portNumber,
-                                boolean enable) {
+    private void handlePortRequest(InternalPortUpDownEvent event) {
+        DeviceId deviceId = event.deviceId();
         checkNotNull(deviceId, DEVICE_ID_NULL);
         checkNotNull(deviceId, PORT_NUMBER_NULL);
+        checkState(mastershipService.isLocalMaster(deviceId), EVENT_NON_MASTER);
+        changePortStateAtMaster(event.deviceId(), event.portNumber(), event.isEnable());
+    }
+
+    private void changePortStateAtMaster(DeviceId deviceId, PortNumber portNumber,
+                                       boolean enable) {
         DeviceProvider provider = getProvider(deviceId);
         if (provider != null) {
-            log.warn("Port {} on device {} being administratively brought {}",
+            log.info("Port {} on device {} being administratively brought {}",
                      portNumber, deviceId,
                      (enable) ? "UP" : "DOWN");
             provider.changePortState(deviceId, portNumber, enable);
         } else {
             log.warn("Provider not found for {}", deviceId);
+        }
+    }
+
+    @Override
+    public void changePortState(DeviceId deviceId, PortNumber portNumber,
+                                boolean enable) {
+        checkNotNull(deviceId, DEVICE_ID_NULL);
+        checkNotNull(deviceId, PORT_NUMBER_NULL);
+        NodeId masterId = mastershipService.getMasterFor(deviceId);
+
+        if (!masterId.equals(localNodeId)) {
+            //Send the request to the master node for the device
+            log.info("Device {} is managed by {}, forwarding the request to the MASTER",
+                     deviceId, masterId);
+            communicationService.unicast(
+                    new InternalPortUpDownEvent(deviceId, portNumber, enable),
+                    PORT_UPDOWN_SUBJECT,
+                    SERIALIZER::encode,
+                    masterId).whenComplete((r, error) -> {
+                if (error != null) {
+                    log.warn("Failed to send packet-updown-req to {}", masterId, error);
+                }
+            });
+        } else {
+            changePortStateAtMaster(deviceId, portNumber, enable);
         }
     }
 
@@ -451,6 +515,7 @@ public class DeviceManager
                 log.warn("Device {} is not allowed", deviceId);
                 return;
             }
+            PortDescriptionsConfig portConfig = networkConfigService.getConfig(deviceId, PortDescriptionsConfig.class);
             // Generate updated description and establish my Role
             deviceDescription = BasicDeviceOperator.combine(cfg, deviceDescription);
             Futures.getUnchecked(mastershipService.requestRoleFor(deviceId)
@@ -461,11 +526,23 @@ public class DeviceManager
 
             DeviceEvent event = store.createOrUpdateDevice(provider().id(), deviceId,
                                                            deviceDescription);
+            if (portConfig != null) {
+                //updating the ports if configration exists
+                List<PortDescription> complete = store.getPortDescriptions(provider().id(), deviceId)
+                        .collect(Collectors.toList());
+                complete.addAll(portConfig.portDescriptions());
+                List<PortDescription> portDescriptions = complete.stream()
+                        .map(e -> applyAllPortOps(deviceId, e))
+                        .collect(Collectors.toList());
+                store.updatePorts(provider().id(), deviceId, portDescriptions);
+            }
+
             if (deviceDescription.isDefaultAvailable()) {
                 log.info("Device {} connected", deviceId);
             } else {
                 log.info("Device {} registered", deviceId);
             }
+
             if (event != null) {
                 log.trace("event: {} {}", event.type(), event);
                 post(event);
@@ -547,6 +624,11 @@ public class DeviceManager
                 // any update will be ignored.
                 log.trace("Ignoring {} port updates on standby node. {}", deviceId, portDescriptions);
                 return;
+            }
+            PortDescriptionsConfig portConfig = networkConfigService.getConfig(deviceId, PortDescriptionsConfig.class);
+            if (portConfig != null) {
+                //updating the ports if configration exists
+                portDescriptions.addAll(portConfig.portDescriptions());
             }
             portDescriptions = portDescriptions.stream()
                     .map(e -> applyAllPortOps(deviceId, e))
@@ -898,7 +980,8 @@ public class DeviceManager
             return (event.type() == NetworkConfigEvent.Type.CONFIG_ADDED
                     || event.type() == NetworkConfigEvent.Type.CONFIG_UPDATED)
                     && (event.configClass().equals(BasicDeviceConfig.class)
-                    || portOpsIndex.containsKey(event.configClass()));
+                    || portOpsIndex.containsKey(event.configClass())
+                    || event.configClass().equals(PortDescriptionsConfig.class));
         }
 
         @Override
@@ -922,8 +1005,21 @@ public class DeviceManager
                         de = store.createOrUpdateDevice(dp.id(), did, desc);
                     }
                 }
-            }
-            if (portOpsIndex.containsKey(event.configClass())) {
+            } else if (event.configClass().equals(PortDescriptionsConfig.class)) {
+                DeviceId did = (DeviceId) event.subject();
+                DeviceProvider dp = getProvider(did);
+                if (!event.config().isPresent() ||
+                    getDevice(did) == null || dp == null) {
+                    // sanity check failed, ignore
+                    return;
+                }
+                PortDescriptionsConfig portConfig = (PortDescriptionsConfig) event.config().get();
+                    //updating the ports if configuration exists
+                    List<PortDescription> complete = store.getPortDescriptions(dp.id(), did)
+                            .collect(Collectors.toList());
+                    complete.addAll(portConfig.portDescriptions());
+                    store.updatePorts(dp.id(), did, complete);
+            } else if (portOpsIndex.containsKey(event.configClass())) {
                 ConnectPoint cpt = (ConnectPoint) event.subject();
                 DeviceId did = cpt.deviceId();
                 DeviceProvider dp = getProvider(did);
@@ -1032,4 +1128,35 @@ public class DeviceManager
         return portAnnotationOp.combine(cpt, work);
     }
 
+    /**
+     * Port Enable/Disable message sent to the device's MASTER node.
+     */
+    private class InternalPortUpDownEvent {
+        private final DeviceId deviceId;
+        private final PortNumber portNumber;
+        private final boolean enable;
+
+        protected InternalPortUpDownEvent(
+                DeviceId deviceId, PortNumber portNumber, boolean enable) {
+            this.deviceId = deviceId;
+            this.portNumber = portNumber;
+            this.enable = enable;
+        }
+
+        public DeviceId deviceId() {
+            return deviceId;
+        }
+        public PortNumber portNumber() {
+            return portNumber;
+        }
+        public boolean isEnable() {
+            return enable;
+        }
+
+        protected InternalPortUpDownEvent() {
+            this.deviceId = null;
+            this.portNumber = null;
+            this.enable = false;
+        }
+    }
 }

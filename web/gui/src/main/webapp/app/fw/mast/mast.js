@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-present Open Networking Laboratory
+ * Copyright 2014-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
     var mastHeight = 48,
         padMobile = 16,
         dialogOpts = {
-            edge: 'left'
+            edge: 'left',
         };
 
     var ls;
@@ -83,8 +83,8 @@
             }
 
             wss.bindHandlers({
-                'guiAdded': function () { triggerRefresh('add') },
-                'guiRemoved': function () { triggerRefresh('rem') }
+                'guiAdded': function () { triggerRefresh('add'); },
+                'guiRemoved': function () { triggerRefresh('rem'); },
             });
 
             // delegate to NavService
@@ -120,8 +120,8 @@
             return {
                 mastHeight: function () {
                     return fs.isMobile() ? mastHeight + padMobile : mastHeight;
-                }
-            }
+                },
+            };
         }]);
 
 }());

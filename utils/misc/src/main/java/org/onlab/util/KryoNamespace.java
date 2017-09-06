@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-present Open Networking Laboratory
+ * Copyright 2014-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,8 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.objenesis.strategy.StdInstantiatorStrategy;
 import org.slf4j.Logger;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -303,11 +305,12 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
      * @return serialized bytes
      */
     public byte[] serialize(final Object obj, final int bufferSize) {
-        Output out = new Output(bufferSize, MAX_BUFFER_SIZE);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream(bufferSize);
+        Output out = new Output(outputStream);
         return pool.run(kryo -> {
             kryo.writeClassAndObject(out, obj);
             out.flush();
-            return out.toBytes();
+            return outputStream.toByteArray();
         });
     }
 
@@ -364,7 +367,7 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
      * @return deserialized Object
      */
     public <T> T deserialize(final byte[] bytes) {
-        Input in = new Input(bytes);
+        Input in = new Input(new ByteArrayInputStream(bytes));
         Kryo kryo = borrow();
         try {
             @SuppressWarnings("unchecked")
@@ -512,7 +515,7 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
                 r = kryo.register(type, serializer, id);
             }
             if (r.getId() != id) {
-                log.warn("{}: {} already registered as {}. Skipping {}.",
+                log.debug("{}: {} already registered as {}. Skipping {}.",
                         friendlyName(), r.getType(), r.getId(), id);
             }
             log.trace("{} registered as {}", r.getType(), r.getId());

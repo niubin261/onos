@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -43,6 +44,9 @@ public class DocumentPath implements Comparable<DocumentPath> {
     // TODO: Add means to set the path separator and separator ERE.
     private static String pathSeparator = DEFAULT_SEPARATOR;
     private static String pathSeparatorRE = DEFAULT_SEPARATOR_RE;
+
+    /** Root document tree path. */
+    public static final DocumentPath ROOT = DocumentPath.from("root");
 
     private final List<String> pathElements = Lists.newArrayList();
 
@@ -92,6 +96,39 @@ public class DocumentPath implements Comparable<DocumentPath> {
      */
     public static DocumentPath from(String path) {
         return new DocumentPath(Arrays.asList(path.split(pathSeparatorRE)));
+    }
+
+    /**
+     * Creates a new {@code DocumentPath} from a list of path elements.
+     *
+     * @param elements path elements
+     * @return {@code DocumentPath} instance
+     */
+    public static DocumentPath from(String... elements) {
+        return from(Arrays.asList(elements));
+    }
+
+    /**
+     * Creates a new {@code DocumentPath} from a list of path elements.
+     *
+     * @param elements path elements
+     * @return {@code DocumentPath} instance
+     */
+    public static DocumentPath from(List<String> elements) {
+        return new DocumentPath(elements);
+    }
+
+    /**
+     * Creates a new {@code DocumentPath} from a list of path elements.
+     *
+     * @param elements path elements
+     * @param child child element
+     * @return {@code DocumentPath} instance
+     */
+    public static DocumentPath from(List<String> elements, String child) {
+        elements = new ArrayList<>(elements);
+        elements.add(child);
+        return from(elements);
     }
 
     /**

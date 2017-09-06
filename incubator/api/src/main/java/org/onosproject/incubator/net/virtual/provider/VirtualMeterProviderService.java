@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.onosproject.incubator.net.virtual.provider;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.meter.Meter;
 import org.onosproject.net.meter.MeterFailReason;
+import org.onosproject.net.meter.MeterFeatures;
 import org.onosproject.net.meter.MeterOperation;
 
 import java.util.Collection;
@@ -39,11 +40,27 @@ public interface VirtualMeterProviderService
     void meterOperationFailed(MeterOperation operation, MeterFailReason reason);
 
     /**
-     * Pushes the collection of meters observed on the virtual data plane as
+     * Pushes the collection of meters observed on the data plane as
      * well as their associated statistics.
      *
      * @param deviceId a device id
      * @param meterEntries a collection of meter entries
      */
     void pushMeterMetrics(DeviceId deviceId, Collection<Meter> meterEntries);
+
+    /**
+     * Pushes the meter features collected from the device.
+     *
+     * @param deviceId the device Id
+     * @param meterfeatures the meter features
+     */
+    void pushMeterFeatures(DeviceId deviceId,
+                           MeterFeatures meterfeatures);
+
+    /**
+     * Delete meter features collected from the device.
+     *
+     * @param deviceId the device id
+     */
+    void deleteMeterFeatures(DeviceId deviceId);
 }

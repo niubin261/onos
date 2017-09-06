@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,20 @@ package org.onosproject.yang;
 
 import org.onosproject.drivers.microsemi.yang.MicrosemiModelRegistrator;
 import org.onosproject.yang.compiler.datamodel.YangNode;
-import org.onosproject.yang.compiler.datamodel.utils.DataModelUtils;
 import org.onosproject.yang.runtime.DefaultModelRegistrationParam;
 import org.onosproject.yang.runtime.ModelRegistrationParam;
 import org.onosproject.yang.runtime.YangModelRegistry;
-import org.onosproject.yang.runtime.helperutils.YangApacheUtils;
 import org.onosproject.yang.runtime.impl.DefaultYangModelRegistry;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.junit.Assert.fail;
+import static org.onosproject.yang.compiler.tool.YangCompilerManager.deSerializeDataModel;
+import static org.onosproject.yang.compiler.tool.YangCompilerManager.getYangNodes;
+import static org.onosproject.yang.compiler.tool.YangCompilerManager.processYangModel;
 
 public class MockMicrosemiRegistrator extends MicrosemiModelRegistrator {
     private static final String FS = File.separator;
@@ -45,9 +48,9 @@ public class MockMicrosemiRegistrator extends MicrosemiModelRegistrator {
         modelRegistry = new DefaultYangModelRegistry();
         List<YangNode> nodes = new ArrayList<>();
         try {
-            nodes.addAll(DataModelUtils.deSerializeDataModel(META_PATH));
+            nodes.addAll(getYangNodes(deSerializeDataModel(META_PATH)));
 
-            model = YangApacheUtils.processYangModel(META_PATH, nodes);
+            model = processYangModel(META_PATH, nodes, "test", false);
             ModelRegistrationParam.Builder b =
                     DefaultModelRegistrationParam.builder().setYangModel(model);
             b.setYangModel(model);
@@ -56,6 +59,7 @@ public class MockMicrosemiRegistrator extends MicrosemiModelRegistrator {
             modelRegistry.registerModel(registrationParam);
         } catch (IOException ioe) {
             ioe.printStackTrace();
+            fail();
         }
     }
 

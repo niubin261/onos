@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright 2017-present Open Networking Laboratory
+  ~ Copyright 2017-present Open Networking Foundation
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 
     <artifactId>onos-drivers-bmv2</artifactId>
     <packaging>bundle</packaging>
-    
+
     <description>BMv2 device drivers</description>
     <dependencies>
         <dependency>
@@ -62,5 +62,17 @@
             org.onosproject.generaldeviceprovider
         </onos.app.requires>
     </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <!-- Workaround for P4 test code using symlinks in git -->
+                <!-- last version which copies symlink target -->
+                <version>2.7</version>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

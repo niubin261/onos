@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,6 +67,7 @@ public class P4RuntimeControllerImpl
 
     @Activate
     public void activate() {
+        eventDispatcher.addSink(P4RuntimeEvent.class, listenerRegistry);
         log.info("Started");
     }
 
@@ -74,12 +75,13 @@ public class P4RuntimeControllerImpl
     @Deactivate
     public void deactivate() {
         grpcController = null;
+        eventDispatcher.removeSink(P4RuntimeEvent.class);
         log.info("Stopped");
     }
 
 
     @Override
-    public boolean createClient(DeviceId deviceId, int p4DeviceId, ManagedChannelBuilder channelBuilder) {
+    public boolean createClient(DeviceId deviceId, long p4DeviceId, ManagedChannelBuilder channelBuilder) {
         checkNotNull(deviceId);
         checkNotNull(channelBuilder);
 
@@ -99,7 +101,7 @@ public class P4RuntimeControllerImpl
         }
     }
 
-    private boolean doCreateClient(DeviceId deviceId, int p4DeviceId, ManagedChannelBuilder channelBuilder) {
+    private boolean doCreateClient(DeviceId deviceId, long p4DeviceId, ManagedChannelBuilder channelBuilder) {
 
         GrpcChannelId channelId = GrpcChannelId.of(deviceId, "p4runtime");
 

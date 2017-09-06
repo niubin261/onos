@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-present Open Networking Laboratory
+ * Copyright 2014-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 /*
  ONOS GUI -- Main Application Module
  */
+
 (function () {
     'use strict';
 
@@ -57,7 +58,10 @@
         '24:886774868469',
         '17:7487696973687580739078',
         '14:70777086',
-        '17:7287687967'
+        '17:7287687967',
+        '11:65678869706783687184',
+        '1:80777778',
+        '9:72696982'
         // Add more sauce...
     ];
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-present Open Networking Laboratory
+ * Copyright 2015-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,18 +67,6 @@ public class XmlDriverLoader {
     private final BehaviourClassResolver resolver;
 
     private Map<String, Driver> drivers = Maps.newHashMap();
-
-    /**
-     * Creates a new driver loader capable of loading drivers from the supplied
-     * class loader.
-     *
-     * @param classLoader class loader to use
-     * @deprecated since 1.7.0 (Hummingbird)
-     */
-    @Deprecated
-    public XmlDriverLoader(ClassLoader classLoader) {
-        this(classLoader, null);
-    }
 
     /**
      * Creates a new driver loader capable of loading drivers from the supplied

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ import org.onosproject.net.pi.runtime.PiExactFieldMatch;
 import org.onosproject.net.pi.runtime.PiFieldMatch;
 import org.onosproject.net.pi.runtime.PiHeaderFieldId;
 import org.onosproject.net.pi.runtime.PiLpmFieldMatch;
+import org.onosproject.net.pi.runtime.PiMatchKey;
 import org.onosproject.net.pi.runtime.PiRangeFieldMatch;
 import org.onosproject.net.pi.runtime.PiTableAction;
 import org.onosproject.net.pi.runtime.PiTableEntry;
@@ -67,6 +68,7 @@ import static org.onosproject.net.pi.runtime.PiFlowRuleTranslationService.PiFlow
  */
 final class PiFlowRuleTranslator {
 
+    public static final int MAX_PI_PRIORITY = (int) Math.pow(2, 24);
     private static final Logger log = LoggerFactory.getLogger(PiFlowRuleTranslationServiceImpl.class);
 
     private PiFlowRuleTranslator() {
@@ -79,18 +81,24 @@ final class PiFlowRuleTranslator {
         PiPipelineModel pipelineModel = pipeconf.pipelineModel();
 
         // Retrieve interpreter, if any.
-        // FIXME: get interpreter via driver once implemented.
-        // final PiPipelineInterpreter interpreter = device.is(PiPipelineInterpreter.class)
-        //        ? device.as(PiPipelineInterpreter.class) : null;
-
         final PiPipelineInterpreter interpreter;
-        try {
-            interpreter = (PiPipelineInterpreter) pipeconf.implementation(PiPipelineInterpreter.class)
-                    .orElse(null)
-                    .newInstance();
-        } catch (InstantiationException | IllegalAccessException e) {
-            throw new PiFlowRuleTranslationException(format(
-                    "Unable to instantiate interpreter of pipeconf %s", pipeconf.id()));
+
+        if (device != null) {
+            interpreter = device.is(PiPipelineInterpreter.class) ? device.as(PiPipelineInterpreter.class) : null;
+        } else {
+            // The case of device == null should be admitted only during unit testing.
+            // In any other case, the interpreter should be constructed using the device.as() method to make sure that
+            // behaviour's handler/data attributes are correctly populated.
+            // FIXME: modify test class PiFlowRuleTranslatorTest to avoid passing null device
+            // I.e. we need to create a device object that supports is/as method for obtaining the interpreter.
+            log.warn("translateFlowRule() called with device == null, is this a unit test?");
+            try {
+                interpreter = (PiPipelineInterpreter) pipeconf.implementation(PiPipelineInterpreter.class)
+                        .orElse(null)
+                        .newInstance();
+            } catch (InstantiationException | IllegalAccessException e) {
+                throw new RuntimeException(format("Unable to instantiate interpreter of pipeconf %s", pipeconf.id()));
+            }
         }
 
         PiTableId piTableId;
@@ -123,19 +131,29 @@ final class PiFlowRuleTranslator {
         Collection<PiFieldMatch> fieldMatches = buildFieldMatches(interpreter, rule.selector(), table);
 
         /* Translate treatment */
-        PiAction piAction = buildAction(rule.treatment(), interpreter, pipeconf);
+        PiAction piAction = buildAction(rule.treatment(), interpreter, piTableId);
         piAction = typeCheckAction(piAction, table);
 
         PiTableEntry.Builder tableEntryBuilder = PiTableEntry.builder();
 
-        // In BMv2 0 is the highest priority.
-        // FIXME: Check P4Runtime and agree on maximum priority in the TableEntry javadoc.
-        // int newPriority = Integer.MAX_VALUE - rule.priority();
+        // In the P4 world 0 is the highest priority, in ONOS the lowest one.
+        // FIXME: move priority conversion to the driver, where different constraints might apply
+        // e.g. less bits for encoding priority in TCAM-based implementations.
+        int newPriority;
+        if (rule.priority() > MAX_PI_PRIORITY) {
+            log.warn("Flow rule priority too big, setting translated priority to max value {}: {}",
+                     MAX_PI_PRIORITY, rule);
+            newPriority = 0;
+        } else {
+            newPriority = MAX_PI_PRIORITY - rule.priority();
+        }
 
         tableEntryBuilder
                 .forTable(piTableId)
-                .withPriority(rule.priority())
-                .withFieldMatches(fieldMatches)
+                .withPriority(newPriority)
+                .withMatchKey(PiMatchKey.builder()
+                                      .addFieldMatches(fieldMatches)
+                                      .build())
                 .withAction(piAction);
 
         if (!rule.isPermanent()) {
@@ -155,7 +173,7 @@ final class PiFlowRuleTranslator {
      * Builds a PI action out of the given treatment, optionally using the given interpreter.
      */
     private static PiAction buildAction(TrafficTreatment treatment, PiPipelineInterpreter interpreter,
-                                        PiPipeconf pipeconf)
+                                        PiTableId tableId)
             throws PiFlowRuleTranslationException {
 
         PiTableAction piTableAction = null;
@@ -176,7 +194,7 @@ final class PiFlowRuleTranslator {
         if (piTableAction == null && interpreter != null) {
             // No PiInstruction, use interpreter to build action.
             try {
-                piTableAction = interpreter.mapTreatment(treatment, pipeconf);
+                piTableAction = interpreter.mapTreatment(treatment, tableId);
             } catch (PiPipelineInterpreter.PiInterpreterException e) {
                 throw new PiFlowRuleTranslationException(
                         "Interpreter was unable to translate treatment. " + e.getMessage());
@@ -268,7 +286,7 @@ final class PiFlowRuleTranslator {
 
         for (PiTableMatchFieldModel fieldModel : tableModel.matchFields()) {
 
-            PiHeaderFieldId fieldId = PiHeaderFieldId.of(fieldModel.field().header().type().name(),
+            PiHeaderFieldId fieldId = PiHeaderFieldId.of(fieldModel.field().header().name(),
                                                          fieldModel.field().type().name(),
                                                          fieldModel.field().header().index());
 

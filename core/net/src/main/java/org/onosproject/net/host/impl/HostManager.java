@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-present Open Networking Laboratory
+ * Copyright 2014-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import org.onlab.packet.MacAddress;
 import org.onlab.packet.VlanId;
 import org.onlab.util.Tools;
 import org.onosproject.cfg.ComponentConfigService;
-import org.onosproject.incubator.net.intf.InterfaceService;
+import org.onosproject.net.intf.InterfaceService;
 import org.onosproject.net.HostLocation;
 import org.onosproject.net.edge.EdgePortService;
 import org.onosproject.net.provider.AbstractListenerProviderRegistry;
@@ -453,6 +453,16 @@ public class HostManager
             }
 
             store.removeLocation(hostId, location);
+        }
+
+        @Override
+        public MacAddress addPendingHostLocation(HostId hostId, HostLocation hostLocation) {
+            return store.addPendingHostLocation(hostId, hostLocation);
+        }
+
+        @Override
+        public void removePendingHostLocation(MacAddress probeMac) {
+            store.removePendingHostLocation(probeMac);
         }
 
         private boolean allowedToChange(HostId hostId) {

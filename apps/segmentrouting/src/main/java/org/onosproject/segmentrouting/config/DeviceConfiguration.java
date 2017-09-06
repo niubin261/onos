@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-present Open Networking Laboratory
+ * Copyright 2015-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import org.onlab.packet.IpAddress;
 import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.VlanId;
-import org.onosproject.incubator.net.config.basics.ConfigException;
-import org.onosproject.incubator.net.config.basics.InterfaceConfig;
-import org.onosproject.incubator.net.intf.Interface;
+import org.onosproject.net.config.ConfigException;
+import org.onosproject.net.config.basics.InterfaceConfig;
+import org.onosproject.net.intf.Interface;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.host.InterfaceIpAddress;
 import org.onosproject.net.DeviceId;
@@ -72,6 +72,8 @@ public class DeviceConfiguration implements DeviceProperties {
         SetMultimap<PortNumber, IpAddress> gatewayIps;
         SetMultimap<PortNumber, IpPrefix> subnets;
         Map<Integer, Set<Integer>> adjacencySids;
+        DeviceId pairDeviceId;
+        PortNumber pairLocalPort;
 
         public SegmentRouterInfo() {
             gatewayIps = HashMultimap.create();
@@ -87,7 +89,10 @@ public class DeviceConfiguration implements DeviceProperties {
      */
     public DeviceConfiguration(SegmentRoutingManager srManager) {
         this.srManager = srManager;
+        updateConfig();
+    }
 
+    public void updateConfig() {
         // Read config from device subject, excluding gatewayIps and subnets.
         Set<DeviceId> deviceSubjects =
                 srManager.cfgService.getSubjects(DeviceId.class, SegmentRoutingDeviceConfig.class);
@@ -103,6 +108,8 @@ public class DeviceConfiguration implements DeviceProperties {
             info.mac = config.routerMac();
             info.isEdge = config.isEdgeRouter();
             info.adjacencySids = config.adjacencySids();
+            info.pairDeviceId = config.pairDeviceId();
+            info.pairLocalPort = config.pairLocalPort();
             deviceConfigMap.put(info.deviceId, info);
             log.debug("Read device config for device: {}", info.deviceId);
             /*
@@ -157,6 +164,7 @@ public class DeviceConfiguration implements DeviceProperties {
             srManager.registerConnectPoint(subject);
         });
     }
+
 
     @Override
     public boolean isConfigured(DeviceId deviceId) {
@@ -259,7 +267,6 @@ public class DeviceConfiguration implements DeviceProperties {
     public MacAddress getDeviceMac(DeviceId deviceId) throws DeviceConfigNotFoundException {
         SegmentRouterInfo srinfo = deviceConfigMap.get(deviceId);
         if (srinfo != null) {
-            log.trace("getDeviceMac for device{} is {}", deviceId, srinfo.mac);
             return srinfo.mac;
         } else {
             String message = "getDeviceMac fails for device: " + deviceId + ".";
@@ -639,4 +646,34 @@ public class DeviceConfiguration implements DeviceProperties {
         }
         return false;
     }
+
+    public boolean isPairedEdge(DeviceId deviceId) throws DeviceConfigNotFoundException {
+        if (!isEdgeDevice(deviceId)) {
+            return false;
+        }
+        SegmentRouterInfo srinfo = deviceConfigMap.get(deviceId);
+        return (srinfo.pairDeviceId == null) ? false : true;
+    }
+
+    public DeviceId getPairDeviceId(DeviceId deviceId) throws DeviceConfigNotFoundException {
+        SegmentRouterInfo srinfo = deviceConfigMap.get(deviceId);
+        if (srinfo != null) {
+            return srinfo.pairDeviceId;
+        } else {
+            String message = "getPairDeviceId fails for device: " + deviceId + ".";
+            throw new DeviceConfigNotFoundException(message);
+        }
+    }
+
+    public PortNumber getPairLocalPort(DeviceId deviceId)
+            throws DeviceConfigNotFoundException {
+        SegmentRouterInfo srinfo = deviceConfigMap.get(deviceId);
+        if (srinfo != null) {
+            return srinfo.pairLocalPort;
+        } else {
+            String message = "getPairLocalPort fails for device: " + deviceId + ".";
+            throw new DeviceConfigNotFoundException(message);
+        }
+    }
+
 }

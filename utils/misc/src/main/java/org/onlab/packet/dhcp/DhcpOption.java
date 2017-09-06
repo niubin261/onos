@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 public class DhcpOption extends BasePacket {
     public static final int OPT_CODE_LEN = 1;
     public static final int DEFAULT_LEN = 2;
+    protected static final int UNSIGNED_BYTE_MASK = 0xff;
     private final Logger log = getLogger(getClass());
     protected byte code;
     protected byte length;
@@ -76,7 +77,8 @@ public class DhcpOption extends BasePacket {
             dhcpOption.code = byteBuffer.get();
             if (byteBuffer.hasRemaining()) {
                 dhcpOption.length = byteBuffer.get();
-                dhcpOption.data = new byte[dhcpOption.length];
+                int optionLen = UNSIGNED_BYTE_MASK & dhcpOption.length;
+                dhcpOption.data = new byte[optionLen];
                 byteBuffer.get(dhcpOption.data);
             } else {
                 dhcpOption.length = 0;
@@ -141,7 +143,7 @@ public class DhcpOption extends BasePacket {
      */
     @Override
     public int hashCode() {
-        return Objects.hash(code, length, data);
+        return Objects.hash(code, length, Arrays.hashCode(data));
     }
 
     /*

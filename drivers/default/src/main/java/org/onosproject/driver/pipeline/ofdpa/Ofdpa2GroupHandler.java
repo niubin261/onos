@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ import org.onosproject.net.flow.criteria.TunnelIdCriterion;
 import org.onosproject.net.flow.criteria.VlanIdCriterion;
 import org.onosproject.net.flow.instructions.Instruction;
 import org.onosproject.net.flow.instructions.Instructions;
+import org.onosproject.net.flow.instructions.Instructions.GroupInstruction;
 import org.onosproject.net.flow.instructions.L2ModificationInstruction;
 import org.onosproject.net.flowobjective.DefaultNextObjective;
 import org.onosproject.net.flowobjective.FlowObjectiveStore;
@@ -66,6 +67,7 @@ import org.slf4j.Logger;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
@@ -442,7 +444,7 @@ public class Ofdpa2GroupHandler {
                 portNum = ((Instructions.OutputInstruction) ins).port().toLong();
                 innerTtb.add(ins);
             } else {
-                log.warn("Driver does not handle this type of TrafficTreatment"
+                log.debug("Driver does not handle this type of TrafficTreatment"
                         + " instruction in nextObjectives:  {}", ins.type());
             }
         }
@@ -1026,7 +1028,20 @@ public class Ofdpa2GroupHandler {
                 return;
             }
             if (existingPorts.contains(portNumber)) {
-                duplicateBuckets.add(trafficTreatment);
+                // its possible that portnumbers are same but labels are different
+                int label = readLabelFromTreatment(trafficTreatment);
+                if (label == -1) {
+                    duplicateBuckets.add(trafficTreatment);
+                } else {
+                    List<Integer> existing = existingPortAndLabel(allActiveKeys,
+                                                 groupService, deviceId,
+                                                 portNumber, label);
+                    if (!existing.isEmpty()) {
+                        duplicateBuckets.add(trafficTreatment);
+                    } else {
+                        nonDuplicateBuckets.add(trafficTreatment);
+                    }
+                }
             } else {
                 nonDuplicateBuckets.add(trafficTreatment);
             }
@@ -1304,12 +1319,14 @@ public class Ofdpa2GroupHandler {
     }
 
     /**
-     * Removes the bucket in the top level group of a possible group-chain. Does
+     * Removes buckets in the top level group of a possible group-chain. Does
      * not remove the groups in the group-chain pointed to by this bucket, as they
      * may be in use (referenced by other groups) elsewhere.
      *
-     * @param nextObjective the bucket information for a next group
-     * @param next the representation of the existing group-chain for this next objective
+     * @param nextObjective a next objective that contains information for the
+     *                          buckets to be removed from the group
+     * @param next the representation of the existing group-chains for this next
+     *          objective, from which the top-level buckets to remove are determined
      */
     protected void removeBucketFromGroup(NextObjective nextObjective, NextGroup next) {
         if (nextObjective.type() != NextObjective.Type.HASHED &&
@@ -1319,55 +1336,47 @@ public class Ofdpa2GroupHandler {
             fail(nextObjective, ObjectiveError.UNSUPPORTED);
             return;
         }
-        Set<PortNumber> portsToRemove = Sets.newHashSet();
-        Collection<TrafficTreatment> treatments = nextObjective.next();
-        for (TrafficTreatment treatment : treatments) {
-            // find the bucket to remove by noting the outport, and figuring out the
-            // top-level group in the group-chain that indirectly references the port
-            PortNumber portToRemove = readOutPortFromTreatment(treatment);
-            if (portToRemove == null) {
-                log.warn("treatment {} of next objective {} has no outport.. cannot remove bucket"
-                       + "from group in dev: {}", treatment, nextObjective.id(), deviceId);
-            } else {
-                portsToRemove.add(portToRemove);
-            }
-        }
-
-        if (portsToRemove.isEmpty()) {
-            log.warn("next objective {} has no outport.. cannot remove bucket"
-                             + "from group in dev: {}", nextObjective.id(), deviceId);
-            fail(nextObjective, ObjectiveError.BADPARAMS);
-        }
-
         List<Deque<GroupKey>> allActiveKeys = appKryo.deserialize(next.data());
-        List<Deque<GroupKey>> chainsToRemove = Lists.newArrayList();
-        for (Deque<GroupKey> gkeys : allActiveKeys) {
-            // last group in group chain should have a single bucket pointing to port
-            GroupKey groupWithPort = gkeys.peekLast();
-            Group group = groupService.getGroup(deviceId, groupWithPort);
-            if (group == null) {
-                log.warn("Inconsistent group chain found when removing bucket"
-                        + "for next:{} in dev:{}", nextObjective.id(), deviceId);
+        List<Integer> indicesToRemove = Lists.newArrayList();
+        for (TrafficTreatment treatment : nextObjective.next()) {
+            // find the top-level bucket in the group-chain by matching the
+            // outport and label from different groups in the chain
+            PortNumber portToRemove = readOutPortFromTreatment(treatment);
+            int labelToRemove = readLabelFromTreatment(treatment);
+            if (portToRemove == null) {
+                log.warn("treatment {} of next objective {} has no outport.. "
+                        + "cannot remove bucket from group in dev: {}", treatment,
+                        nextObjective.id(), deviceId);
                 continue;
             }
-            if (group.buckets().buckets().isEmpty()) {
-                log.warn("Can't get output port information from group {} " +
-                                 "because there is no bucket in the group.",
-                         group.id().toString());
-                continue;
-            }
-            PortNumber pout = readOutPortFromTreatment(
-                                  group.buckets().buckets().get(0).treatment());
-            if (portsToRemove.contains(pout)) {
-                chainsToRemove.add(gkeys);
-            }
+            List<Integer> existing = existingPortAndLabel(allActiveKeys,
+                                                          groupService, deviceId,
+                                                          portToRemove, labelToRemove);
+            indicesToRemove.addAll(existing);
+
         }
+
+        List<Deque<GroupKey>> chainsToRemove = Lists.newArrayList();
+        indicesToRemove.forEach(index -> chainsToRemove
+                                .add(allActiveKeys.get(index)));
         if (chainsToRemove.isEmpty()) {
             log.warn("Could not find appropriate group-chain for removing bucket"
                     + " for next id {} in dev:{}", nextObjective.id(), deviceId);
             fail(nextObjective, ObjectiveError.BADPARAMS);
             return;
         }
+        removeBucket(chainsToRemove, nextObjective);
+    }
+
+    /**
+     * Removes top-level buckets from a group that represents the given next objective.
+     *
+     * @param chainsToRemove a list of group bucket chains to remove
+     * @param nextObjective the next objective that contains information for the
+     *                  buckets to be removed from the group
+     */
+    protected void removeBucket(List<Deque<GroupKey>> chainsToRemove,
+                                NextObjective nextObjective) {
         List<GroupBucket> bucketsToRemove = Lists.newArrayList();
         //first group key is the one we want to modify
         GroupKey modGroupKey = chainsToRemove.get(0).peekFirst();
@@ -1375,15 +1384,15 @@ public class Ofdpa2GroupHandler {
         for (Deque<GroupKey> foundChain : chainsToRemove) {
             //second group key is the one we wish to remove the reference to
             if (foundChain.size() < 2) {
-                // additional check to make sure second group key exist in
+                // additional check to make sure second group key exists in
                 // the chain.
                 log.warn("Can't find second group key from chain {}",
                          foundChain);
                 continue;
             }
-            GroupKey pointedGroupKey = foundChain.stream().collect(Collectors.toList()).get(1);
+            GroupKey pointedGroupKey = foundChain.stream()
+                                           .collect(Collectors.toList()).get(1);
             Group pointedGroup = groupService.getGroup(deviceId, pointedGroupKey);
-
             if (pointedGroup == null) {
                 continue;
             }
@@ -1400,7 +1409,6 @@ public class Ofdpa2GroupHandler {
                                 .group(pointedGroup.id())
                                 .build());
             }
-
             bucketsToRemove.add(bucket);
         }
 
@@ -1425,15 +1433,20 @@ public class Ofdpa2GroupHandler {
         groupService.removeBucketsFromGroup(deviceId, modGroupKey,
                                             removeBuckets, modGroupKey,
                                             nextObjective.appId());
-        // update store - synchronize access
+        // update store - synchronize access as there may be multiple threads
+        // trying to remove buckets from the same group, each with its own
+        // potentially stale copy of allActiveKeys
         synchronized (flowObjectiveStore) {
-            // get fresh copy of what the store holds
-            next = flowObjectiveStore.getNextGroup(nextObjective.id());
-            allActiveKeys = appKryo.deserialize(next.data());
+            // get a fresh copy of what the store holds
+            NextGroup next = flowObjectiveStore.getNextGroup(nextObjective.id());
+            List<Deque<GroupKey>> allActiveKeys = appKryo.deserialize(next.data());
             // Note that since we got a new object, and ArrayDeque does not implement
-            // Object.equals(), we have to check the deque last elems one by one
-            allActiveKeys.removeIf(active -> chainsToRemove.stream().anyMatch(remove ->
-                                       remove.peekLast().equals(active.peekLast())));
+            // Object.equals(), we have to check the deque elems one by one
+            allActiveKeys
+                .removeIf(active ->
+                    chainsToRemove.stream().anyMatch(remove ->
+                        Arrays.equals(remove.toArray(new GroupKey[0]),
+                                      active.toArray(new GroupKey[0]))));
             // If no buckets in the group, then retain an entry for the
             // top level group which still exists.
             if (allActiveKeys.isEmpty()) {
@@ -1442,7 +1455,8 @@ public class Ofdpa2GroupHandler {
                 allActiveKeys.add(top);
             }
             flowObjectiveStore.putNextGroup(nextObjective.id(),
-                                            new OfdpaNextGroup(allActiveKeys, nextObjective));
+                                            new OfdpaNextGroup(allActiveKeys,
+                                                               nextObjective));
         }
     }
 
@@ -1464,6 +1478,172 @@ public class Ofdpa2GroupHandler {
                 groupService.removeGroup(deviceId, groupKey, nextObjective.appId())));
         flowObjectiveStore.removeNextGroup(nextObjective.id());
     }
+
+    /**
+     *  Checks existing buckets in {@link NextGroup}  to verify if they match
+     *  the buckets in the given {@link NextObjective}. Adds or removes buckets
+     *  to ensure that the buckets match up.
+     *
+     * @param nextObjective the next objective to verify
+     * @param next the representation of the existing group which has to be
+     *             modified to match the given next objective
+     */
+    protected void verifyGroup(NextObjective nextObjective, NextGroup next) {
+        if (nextObjective.type() != NextObjective.Type.HASHED) {
+            log.warn("verification not supported for {} group", nextObjective.type());
+            fail(nextObjective, ObjectiveError.UNSUPPORTED);
+            return;
+        }
+        log.debug("Call to verify device:{} nextId:{}", deviceId, nextObjective.id());
+        List<Deque<GroupKey>> allActiveKeys = appKryo.deserialize(next.data());
+        List<TrafficTreatment> bucketsToCreate = Lists.newArrayList();
+        List<Integer> indicesToRemove = Lists.newArrayList();
+        for (TrafficTreatment bkt : nextObjective.next()) {
+            PortNumber portNumber = readOutPortFromTreatment(bkt);
+            int label = readLabelFromTreatment(bkt);
+            if (portNumber == null) {
+                log.warn("treatment {} of next objective {} has no outport.. "
+                        + "cannot remove bucket from group in dev: {}", bkt,
+                        nextObjective.id(), deviceId);
+                fail(nextObjective, ObjectiveError.BADPARAMS);
+                return;
+            }
+            List<Integer> existing = existingPortAndLabel(allActiveKeys,
+                                                          groupService, deviceId,
+                                                          portNumber, label);
+            if (existing.isEmpty()) {
+                // if it doesn't exist, mark this bucket for creation
+                bucketsToCreate.add(bkt);
+            }
+            if (existing.size() > 1) {
+                // if it exists but there are duplicates, mark the others for removal
+                existing.remove(0);
+                indicesToRemove.addAll(existing);
+            }
+        }
+
+        if (!bucketsToCreate.isEmpty()) {
+            log.info("creating {} buckets as part of nextId: {} verification",
+                     bucketsToCreate.size(), nextObjective.id());
+            //create a nextObjective only with these buckets
+            NextObjective.Builder nextObjBuilder = DefaultNextObjective.builder()
+                    .withId(nextObjective.id())
+                    .withType(NextObjective.Type.HASHED)
+                    .withMeta(nextObjective.meta())
+                    .fromApp(nextObjective.appId());
+            bucketsToCreate.forEach(bucket -> nextObjBuilder.addTreatment(bucket));
+            addBucketToHashGroup(nextObjBuilder.addToExisting(), allActiveKeys);
+        }
+
+        if (!indicesToRemove.isEmpty()) {
+            log.info("removing {} buckets as part of nextId: {} verification",
+                     indicesToRemove.size(), nextObjective.id());
+            List<Deque<GroupKey>> chainsToRemove = Lists.newArrayList();
+            indicesToRemove.forEach(index -> chainsToRemove
+                                                 .add(allActiveKeys.get(index)));
+            removeBucket(chainsToRemove, nextObjective);
+        }
+
+        if (bucketsToCreate.isEmpty() && indicesToRemove.isEmpty()) {
+            // flowObjective store record is in-sync with nextObjective passed-in
+            // Nevertheless groupStore may not be in sync due to bug in the store
+            // - see CORD-1844. XXX When this bug is fixed, the rest of this verify
+            // method will not be required.
+            GroupKey hashGroupKey = allActiveKeys.get(0).peekFirst();
+            Group hashGroup = groupService.getGroup(deviceId, hashGroupKey);
+            int actualGroupSize = hashGroup.buckets().buckets().size();
+            int objGroupSize = nextObjective.next().size();
+            if (actualGroupSize != objGroupSize) {
+                log.warn("Mismatch detected in device:{}, nextId:{}, nextObjective-size"
+                        + ":{} group-size:{} .. correcting", deviceId, nextObjective.id(),
+                        objGroupSize, actualGroupSize);
+            }
+            if (actualGroupSize > objGroupSize) {
+                List<GroupBucket> bucketsToRemove = Lists.newArrayList();
+                //check every bucket in the actual group
+                for (GroupBucket bucket : hashGroup.buckets().buckets()) {
+                    GroupInstruction g = (GroupInstruction) bucket.treatment()
+                                            .allInstructions().iterator().next();
+                    GroupId gidToCheck = g.groupId(); // the group pointed to
+                    boolean matches = false;
+                    for (Deque<GroupKey> validChain : allActiveKeys) {
+                        if (validChain.size() < 2) {
+                            continue;
+                        }
+                        GroupKey pointedGroupKey = validChain.stream()
+                                                       .collect(Collectors.toList()).get(1);
+                        Group pointedGroup = groupService.getGroup(deviceId, pointedGroupKey);
+                        if (pointedGroup != null && gidToCheck.equals(pointedGroup.id())) {
+                            matches = true;
+                            break;
+                        }
+                    }
+                    if (!matches) {
+                        log.warn("Removing bucket pointing to groupId:{}", gidToCheck);
+                        bucketsToRemove.add(bucket);
+                    }
+                }
+                // remove buckets for which there was no record in the obj store
+                if (bucketsToRemove.isEmpty()) {
+                    log.warn("Mismatch detected but could not determine which"
+                            + "buckets to remove");
+                } else {
+                    GroupBuckets removeBuckets = new GroupBuckets(bucketsToRemove);
+                    groupService.removeBucketsFromGroup(deviceId, hashGroupKey,
+                                                        removeBuckets, hashGroupKey,
+                                                        nextObjective.appId());
+                }
+            } else if (actualGroupSize < objGroupSize) {
+                // should also add buckets not in group-store but in obj-store
+                List<GroupBucket> bucketsToAdd = Lists.newArrayList();
+                //check every bucket in the obj
+                for (Deque<GroupKey> validChain : allActiveKeys) {
+                    if (validChain.size() < 2) {
+                        continue;
+                    }
+                    GroupKey pointedGroupKey = validChain.stream()
+                                                   .collect(Collectors.toList()).get(1);
+                    Group pointedGroup = groupService.getGroup(deviceId, pointedGroupKey);
+                    if (pointedGroup == null) {
+                        // group should exist, otherwise cannot be added as bucket
+                        continue;
+                    }
+                    boolean matches = false;
+                    for (GroupBucket bucket : hashGroup.buckets().buckets()) {
+                        GroupInstruction g = (GroupInstruction) bucket.treatment()
+                                                .allInstructions().iterator().next();
+                        GroupId gidToCheck = g.groupId(); // the group pointed to
+                        if (pointedGroup.id().equals(gidToCheck)) {
+                            matches = true;
+                            break;
+                        }
+                    }
+                    if (!matches) {
+                        log.warn("Adding bucket pointing to groupId:{}", pointedGroup);
+                        TrafficTreatment t = DefaultTrafficTreatment.builder()
+                                                .group(pointedGroup.id())
+                                                .build();
+                        bucketsToAdd.add(DefaultGroupBucket.createSelectGroupBucket(t));
+                    }
+                }
+                if (bucketsToAdd.isEmpty()) {
+                    log.warn("Mismatch detected but could not determine which "
+                            + "buckets to add");
+                } else {
+                    GroupBuckets addBuckets = new GroupBuckets(bucketsToAdd);
+                    groupService.addBucketsToGroup(deviceId, hashGroupKey,
+                                                   addBuckets, hashGroupKey,
+                                                   nextObjective.appId());
+                }
+            }
+        }
+
+        pass(nextObjective);
+    }
+
+    //////////////////////////////////////
+    //  Helper methods and classes
+    //////////////////////////////////////
 
     protected void updatePendingNextObjective(GroupKey groupKey, OfdpaNextGroup nextGrp) {
         pendingAddNextObjectives.asMap().compute(groupKey, (k, val) -> {
@@ -1647,7 +1827,6 @@ public class Ofdpa2GroupHandler {
     private class InnerGroupListener implements GroupListener {
         @Override
         public void event(GroupEvent event) {
-            log.trace("received group event of type {}", event.type());
             switch (event.type()) {
                 case GROUP_ADDED:
                     processPendingAddGroupsOrNextObjs(event.subject().appCookie(), true);

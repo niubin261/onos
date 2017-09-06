@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import org.apache.commons.io.Charsets;
 import org.easymock.EasyMock;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.onlab.packet.ARP;
 import org.onlab.packet.DHCP;
+import org.onlab.packet.DeserializationException;
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.IPv4;
 import org.onlab.packet.Ip4Address;
@@ -40,13 +42,17 @@ import org.onosproject.TestApplicationId;
 import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
+import org.onosproject.dhcprelay.api.DhcpHandler;
+import org.onosproject.dhcprelay.config.DefaultDhcpRelayConfig;
+import org.onosproject.dhcprelay.config.DhcpServerConfig;
+import org.onosproject.dhcprelay.config.IndirectDhcpRelayConfig;
 import org.onosproject.dhcprelay.store.DhcpRecord;
 import org.onosproject.dhcprelay.store.DhcpRelayStore;
 import org.onosproject.dhcprelay.store.DhcpRelayStoreEvent;
-import org.onosproject.incubator.net.intf.Interface;
-import org.onosproject.incubator.net.intf.InterfaceServiceAdapter;
-import org.onosproject.incubator.net.routing.Route;
-import org.onosproject.incubator.net.routing.RouteStoreAdapter;
+import org.onosproject.net.intf.Interface;
+import org.onosproject.net.intf.InterfaceServiceAdapter;
+import org.onosproject.routeservice.Route;
+import org.onosproject.routeservice.RouteStoreAdapter;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DefaultHost;
 import org.onosproject.net.Host;
@@ -147,14 +153,18 @@ public class DhcpRelayManagerTest {
                                                                     SERVER_IFACE_MAC,
                                                                     SERVER_VLAN);
 
+    // Relay agent config
+    private static final Ip4Address RELAY_AGENT_IP = Ip4Address.valueOf("10.0.4.254");
+
     // Components
     private static final ApplicationId APP_ID = TestApplicationId.create(DhcpRelayManager.DHCP_RELAY_APP);
-    private static final DhcpRelayConfig CONFIG = new MockDhcpRelayConfig();
+    private static final DefaultDhcpRelayConfig CONFIG = new MockDefaultDhcpRelayConfig();
     private static final Set<Interface> INTERFACES = ImmutableSet.of(
             CLIENT_INTERFACE,
             CLIENT2_INTERFACE,
             SERVER_INTERFACE
     );
+    private static final String NON_ONOS_CID = "Non-ONOS circuit ID";
 
     private DhcpRelayManager manager;
     private MockPacketService packetService;
@@ -167,8 +177,13 @@ public class DhcpRelayManagerTest {
         manager = new DhcpRelayManager();
         manager.cfgService = createNiceMock(NetworkConfigRegistry.class);
 
-        expect(manager.cfgService.getConfig(anyObject(), anyObject()))
+        expect(manager.cfgService.getConfig(APP_ID, DefaultDhcpRelayConfig.class))
                 .andReturn(CONFIG)
+                .anyTimes();
+
+        // TODO: add indirect test
+        expect(manager.cfgService.getConfig(APP_ID, IndirectDhcpRelayConfig.class))
+                .andReturn(null)
                 .anyTimes();
 
         manager.coreService = createNiceMock(CoreService.class);
@@ -176,8 +191,8 @@ public class DhcpRelayManagerTest {
                 .andReturn(APP_ID).anyTimes();
 
         manager.hostService = createNiceMock(HostService.class);
-        expect(manager.hostService.getHostsByIp(anyObject())).andReturn(ImmutableSet.of(SERVER_HOST));
-        expect(manager.hostService.getHost(OUTER_RELAY_HOST_ID)).andReturn(OUTER_RELAY_HOST);
+        expect(manager.hostService.getHostsByIp(anyObject())).andReturn(ImmutableSet.of(SERVER_HOST)).anyTimes();
+        expect(manager.hostService.getHost(OUTER_RELAY_HOST_ID)).andReturn(OUTER_RELAY_HOST).anyTimes();
 
         packetService = new MockPacketService();
         manager.packetService = packetService;
@@ -186,12 +201,22 @@ public class DhcpRelayManagerTest {
         mockHostStore = new MockHostStore();
         mockRouteStore = new MockRouteStore();
         mockDhcpRelayStore = new MockDhcpRelayStore();
-
-        manager.hostStore = mockHostStore;
-        manager.routeStore = mockRouteStore;
         manager.dhcpRelayStore = mockDhcpRelayStore;
 
         manager.interfaceService = new MockInterfaceService();
+
+        Dhcp4HandlerImpl v4Handler = new Dhcp4HandlerImpl();
+        v4Handler.dhcpRelayStore = mockDhcpRelayStore;
+        v4Handler.hostService = manager.hostService;
+        v4Handler.hostStore = mockHostStore;
+        v4Handler.interfaceService = manager.interfaceService;
+        v4Handler.packetService = manager.packetService;
+        v4Handler.routeStore = mockRouteStore;
+        manager.v4Handler = v4Handler;
+
+        // TODO: initialize v6 handler.
+        DhcpHandler v6Handler = createNiceMock(DhcpHandler.class);
+        manager.v6Handler = v6Handler;
 
         // properties
         Dictionary<String, Object> dictionary = createNiceMock(Dictionary.class);
@@ -279,9 +304,27 @@ public class DhcpRelayManagerTest {
     }
 
     @Test
+    public void testWithRelayAgentConfig() throws DeserializationException {
+        manager.v4Handler
+                .setDefaultDhcpServerConfigs(ImmutableList.of(new MockDhcpServerConfig(RELAY_AGENT_IP)));
+        packetService.processPacket(new TestDhcpRequestPacketContext(CLIENT2_MAC,
+                                                                     CLIENT2_VLAN,
+                                                                     CLIENT2_CP,
+                                                                     INTERFACE_IP.ipAddress().getIp4Address(),
+                                                                     true));
+        OutboundPacket outPacket = packetService.emittedPacket;
+        byte[] outData = outPacket.data().array();
+        Ethernet eth = Ethernet.deserializer().deserialize(outData, 0, outData.length);
+        IPv4 ip = (IPv4) eth.getPayload();
+        UDP udp = (UDP) ip.getPayload();
+        DHCP dhcp = (DHCP) udp.getPayload();
+        assertEquals(RELAY_AGENT_IP.toInt(), dhcp.getGatewayIPAddress());
+    }
+
+    @Test
     public void testArpRequest() throws Exception {
         packetService.processPacket(new TestArpRequestPacketContext(CLIENT_INTERFACE));
-        OutboundPacket outboundPacket = packetService.emitedPacket;
+        OutboundPacket outboundPacket = packetService.emittedPacket;
         byte[] outPacketData = outboundPacket.data().array();
         Ethernet eth = Ethernet.deserializer().deserialize(outPacketData, 0, outPacketData.length);
 
@@ -290,23 +333,43 @@ public class DhcpRelayManagerTest {
         assertArrayEquals(arp.getSenderHardwareAddress(), CLIENT_INTERFACE.mac().toBytes());
     }
 
-    private static class MockDhcpRelayConfig extends DhcpRelayConfig {
+    private static class MockDefaultDhcpRelayConfig extends DefaultDhcpRelayConfig {
         @Override
         public boolean isValid() {
             return true;
         }
 
         @Override
-        public ConnectPoint getDhcpServerConnectPoint() {
-            return SERVER_CONNECT_POINT;
+        public List<DhcpServerConfig> dhcpServerConfigs() {
+            return ImmutableList.of(new MockDhcpServerConfig(null));
+        }
+    }
+
+    private static class MockDhcpServerConfig extends DhcpServerConfig {
+        Ip4Address relayAgentIp;
+
+        /**
+         * Create mocked version DHCP server config.
+         *
+         * @param relayAgentIp the relay agent Ip config; null if we don't need it
+         */
+        public MockDhcpServerConfig(Ip4Address relayAgentIp) {
+            this.relayAgentIp = relayAgentIp;
         }
 
-        public Ip4Address getDhcpServerIp() {
-            return SERVER_IP;
+        @Override
+        public Optional<Ip4Address> getRelayAgentIp4() {
+            return Optional.ofNullable(relayAgentIp);
         }
 
-        public Ip4Address getDhcpGatewayIp() {
-            return null;
+        @Override
+        public Optional<ConnectPoint> getDhcpServerConnectPoint() {
+            return Optional.of(SERVER_CONNECT_POINT);
+        }
+
+        @Override
+        public Optional<Ip4Address> getDhcpServerIp4() {
+            return Optional.of(SERVER_IP);
         }
     }
 
@@ -429,7 +492,7 @@ public class DhcpRelayManagerTest {
 
     private class MockPacketService extends PacketServiceAdapter {
         Set<PacketProcessor> packetProcessors = Sets.newHashSet();
-        OutboundPacket emitedPacket;
+        OutboundPacket emittedPacket;
 
         @Override
         public void addProcessor(PacketProcessor processor, int priority) {
@@ -442,7 +505,7 @@ public class DhcpRelayManagerTest {
 
         @Override
         public void emit(OutboundPacket packet) {
-            this.emitedPacket = packet;
+            this.emittedPacket = packet;
         }
     }
 
@@ -553,8 +616,8 @@ public class DhcpRelayManagerTest {
             if (withNonOnosRelayInfo) {
                 DhcpRelayAgentOption relayOption = new DhcpRelayAgentOption();
                 DhcpOption circuitIdOption = new DhcpOption();
-                CircuitId circuitId = new CircuitId("Custom cid", VlanId.NONE);
-                byte[] cid = circuitId.serialize();
+                String circuitId = NON_ONOS_CID;
+                byte[] cid = circuitId.getBytes(Charsets.US_ASCII);
                 circuitIdOption.setCode(DhcpRelayAgentOption.RelayAgentInfoOptions.CIRCUIT_ID.getValue());
                 circuitIdOption.setLength((byte) cid.length);
                 circuitIdOption.setData(cid);

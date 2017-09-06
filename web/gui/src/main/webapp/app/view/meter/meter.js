@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-present Open Networking Laboratory
+ * Copyright 2015-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@
             tbs.buildTable({
                 scope: $scope,
                 tag: 'meter',
-                query: params
+                query: params,
             });
 
             $scope.$watch('tableData', function () {
@@ -66,12 +66,12 @@
                 }
             };
 
-            Object.defineProperty($scope, "queryFilter", {
-                get: function() {
+            Object.defineProperty($scope, 'queryFilter', {
+                get: function () {
                     var out = {};
-                    out[$scope.queryBy || "$"] = $scope.query;
+                    out[$scope.queryBy || '$'] = $scope.query;
                     return out;
-                }
+                },
             });
 
 

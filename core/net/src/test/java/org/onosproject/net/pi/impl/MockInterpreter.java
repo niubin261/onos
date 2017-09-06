@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,13 +19,14 @@ package org.onosproject.net.pi.impl;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import org.onlab.util.ImmutableByteSequence;
+import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.driver.AbstractHandlerBehaviour;
 import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.flow.criteria.Criterion;
 import org.onosproject.net.flow.instructions.Instruction;
+import org.onosproject.net.packet.InboundPacket;
 import org.onosproject.net.packet.OutboundPacket;
-import org.onosproject.net.pi.model.PiPipeconf;
 import org.onosproject.net.pi.model.PiPipelineInterpreter;
 import org.onosproject.net.pi.runtime.PiAction;
 import org.onosproject.net.pi.runtime.PiActionId;
@@ -33,7 +34,6 @@ import org.onosproject.net.pi.runtime.PiActionParam;
 import org.onosproject.net.pi.runtime.PiActionParamId;
 import org.onosproject.net.pi.runtime.PiHeaderFieldId;
 import org.onosproject.net.pi.runtime.PiPacketOperation;
-import org.onosproject.net.pi.runtime.PiTableAction;
 import org.onosproject.net.pi.runtime.PiTableId;
 
 import java.util.Collection;
@@ -48,15 +48,15 @@ import static org.onosproject.net.flow.instructions.Instructions.OutputInstructi
 public class MockInterpreter extends AbstractHandlerBehaviour implements PiPipelineInterpreter {
 
     static final String TABLE0 = "table0";
-    static final String SEND_TO_CPU = "send_to_cpu_0";
+    static final String SEND_TO_CPU = "send_to_cpu";
     static final String PORT = "port";
-    static final String DROP = "_drop_0";
-    static final String SET_EGRESS_PORT = "set_egress_port_0";
+    static final String DROP = "drop";
+    static final String SET_EGRESS_PORT = "set_egress_port";
 
     static final PiHeaderFieldId IN_PORT_ID = PiHeaderFieldId.of("standard_metadata", "ingress_port");
-    static final PiHeaderFieldId ETH_DST_ID = PiHeaderFieldId.of("ethernet_t", "dstAddr");
-    static final PiHeaderFieldId ETH_SRC_ID = PiHeaderFieldId.of("ethernet_t", "srcAddr");
-    static final PiHeaderFieldId ETH_TYPE_ID = PiHeaderFieldId.of("ethernet_t", "etherType");
+    static final PiHeaderFieldId ETH_DST_ID = PiHeaderFieldId.of("ethernet", "dstAddr");
+    static final PiHeaderFieldId ETH_SRC_ID = PiHeaderFieldId.of("ethernet", "srcAddr");
+    static final PiHeaderFieldId ETH_TYPE_ID = PiHeaderFieldId.of("ethernet", "etherType");
 
     private static final ImmutableBiMap<Criterion.Type, PiHeaderFieldId> CRITERION_MAP = ImmutableBiMap.of(
             Criterion.Type.IN_PORT, IN_PORT_ID,
@@ -68,7 +68,7 @@ public class MockInterpreter extends AbstractHandlerBehaviour implements PiPipel
             0, PiTableId.of(TABLE0));
 
     @Override
-    public PiTableAction mapTreatment(TrafficTreatment treatment, PiPipeconf pipeconf) throws PiInterpreterException {
+    public PiAction mapTreatment(TrafficTreatment treatment, PiTableId piTableId) throws PiInterpreterException {
 
         if (treatment.allInstructions().size() == 0) {
             // No instructions means drop for us.
@@ -103,9 +103,15 @@ public class MockInterpreter extends AbstractHandlerBehaviour implements PiPipel
     }
 
     @Override
-    public Collection<PiPacketOperation> mapOutboundPacket(OutboundPacket packet, PiPipeconf pipeconf)
+    public Collection<PiPacketOperation> mapOutboundPacket(OutboundPacket packet)
             throws PiInterpreterException {
         return ImmutableList.of();
+    }
+
+    @Override
+    public InboundPacket mapInboundPacket(DeviceId deviceId, PiPacketOperation packetInOperation)
+            throws PiInterpreterException {
+        return null;
     }
 
     /**
@@ -128,6 +134,11 @@ public class MockInterpreter extends AbstractHandlerBehaviour implements PiPipel
     @Override
     public Optional<PiTableId> mapFlowRuleTableId(int flowRuleTableId) {
         return Optional.ofNullable(TABLE_MAP.get(flowRuleTableId));
+    }
+
+    @Override
+    public Optional<Integer> mapPiTableId(PiTableId piTableId) {
+        return Optional.ofNullable(TABLE_MAP.inverse().get(piTableId));
     }
 
 }

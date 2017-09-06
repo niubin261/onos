@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,6 +77,8 @@ import com.google.common.collect.Maps;
 @Component(immediate = true)
 public class StorageManager implements StorageService, StorageAdminService {
 
+    private static final int BUCKETS = 128;
+
     private final Logger log = getLogger(getClass());
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
@@ -105,8 +107,8 @@ public class StorageManager implements StorageService, StorageAdminService {
         partitionService.getAllPartitionIds().stream()
             .filter(id -> !id.equals(PartitionId.from(0)))
             .forEach(id -> partitionMap.put(id, partitionService.getDistributedPrimitiveCreator(id)));
-        federatedPrimitiveCreator = new FederatedDistributedPrimitiveCreator(partitionMap);
-        transactionManager = new TransactionManager(this, partitionService);
+        federatedPrimitiveCreator = new FederatedDistributedPrimitiveCreator(partitionMap, BUCKETS);
+        transactionManager = new TransactionManager(this, partitionService, BUCKETS);
         log.info("Started");
     }
 

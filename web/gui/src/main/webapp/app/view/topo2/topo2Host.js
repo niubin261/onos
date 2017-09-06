@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
     function createHostCollection(data, region) {
 
         var HostCollection = Collection.extend({
-            model: Model
+            model: Model,
         });
 
         var hosts = [];
@@ -49,7 +49,8 @@
     .factory('Topo2HostService', [
         'Topo2Collection', 'Topo2NodeModel', 'Topo2ViewService',
         'IconService', 'Topo2ZoomService', 'Topo2HostsPanelService', 'PrefsService',
-        function (_c_, NodeModel, _t2vs_, is, zs, t2hds, ps) {
+        'Topo2PrefsService',
+        function (_c_, NodeModel, _t2vs_, is, zs, t2hds, ps, t2ps) {
 
             Collection = _c_;
 
@@ -57,7 +58,7 @@
 
                 nodeType: 'host',
                 events: {
-                    'click': 'onClick'
+                    'click': 'onClick',
                 },
                 initialize: function () {
                     this.super = this.constructor.__super__;
@@ -69,15 +70,25 @@
                         this.el.attr('class', this.svgClassName());
                     }
                 },
-                showDetails: function() {
+                showDetails: function () {
                     t2hds.displayPanel(this);
                 },
                 icon: function () {
                     var type = this.get('type');
                     return remappedDeviceTypes[type] || type || 'm_endstation';
                 },
+                labelIndex: function () {
+                    return t2ps.get('hlbls');
+                },
                 label: function () {
-                    return this.get('ips')[0] || 'unknown';
+                    var props = this.get('props'),
+                        id = this.get('ips')[0] || 'unknown',
+                        friendlyName = props && props.name ? props.name : id,
+                        labels = ['', friendlyName || id, id, this.get('id')],
+                        nli = this.labelIndex(),
+                        idx = (nli < labels.length) ? nli : 0;
+
+                    return labels[idx];
                 },
                 setScale: function () {
 
@@ -118,7 +129,7 @@
                         width: glyphSize,
                         height: glyphSize,
                         x: -glyphSize / 2,
-                        y: -glyphSize / 2
+                        y: -glyphSize / 2,
                     });
 
                     var labelText = this.label();
@@ -132,13 +143,13 @@
                     this.setScale();
                     this.setUpEvents();
                     this.setVisibility();
-                }
+                },
             });
 
             return {
-                createHostCollection: createHostCollection
+                createHostCollection: createHostCollection,
             };
-        }
+        },
     ]);
 
 })();

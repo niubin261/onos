@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,9 @@
 
 package org.onosproject.store.primitives.resources.impl;
 
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -25,11 +28,16 @@ import com.google.common.base.Throwables;
 import io.atomix.protocols.raft.proxy.RaftProxy;
 import io.atomix.protocols.raft.service.RaftService;
 import org.junit.Test;
+import org.onosproject.store.primitives.NodeUpdate;
+import org.onosproject.store.primitives.TransactionId;
 import org.onosproject.store.service.DocumentPath;
 import org.onosproject.store.service.DocumentTreeEvent;
 import org.onosproject.store.service.DocumentTreeListener;
 import org.onosproject.store.service.IllegalDocumentModificationException;
 import org.onosproject.store.service.NoSuchDocumentPathException;
+import org.onosproject.store.service.Ordering;
+import org.onosproject.store.service.TransactionLog;
+import org.onosproject.store.service.Version;
 import org.onosproject.store.service.Versioned;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -43,15 +51,26 @@ import static org.junit.Assert.fail;
  * Unit tests for {@link AtomixDocumentTree}.
  */
 public class AtomixDocumentTreeTest extends AtomixTestBase<AtomixDocumentTree> {
+    private Ordering ordering = Ordering.NATURAL;
 
     @Override
     protected RaftService createService() {
-        return new AtomixDocumentTreeService();
+        return new AtomixDocumentTreeService(ordering);
     }
 
     @Override
     protected AtomixDocumentTree createPrimitive(RaftProxy proxy) {
         return new AtomixDocumentTree(proxy);
+    }
+
+    @Override
+    protected AtomixDocumentTree newPrimitive(String name) {
+        return newPrimitive(name, Ordering.NATURAL);
+    }
+
+    protected AtomixDocumentTree newPrimitive(String name, Ordering ordering) {
+        this.ordering = ordering;
+        return super.newPrimitive(name);
     }
 
     /**
@@ -103,6 +122,34 @@ public class AtomixDocumentTreeTest extends AtomixTestBase<AtomixDocumentTree> {
 
         Versioned<byte[]> abc = tree.get(path("root.a.b.c")).join();
         assertArrayEquals("abc".getBytes(), abc.value());
+    }
+
+    /**
+     * Tests child node order.
+     */
+    @Test
+    public void testOrder() throws Throwable {
+        AtomixDocumentTree naturalTree = newPrimitive(UUID.randomUUID().toString(), Ordering.NATURAL);
+        naturalTree.create(path("root.c"), "foo".getBytes());
+        naturalTree.create(path("root.b"), "bar".getBytes());
+        naturalTree.create(path("root.a"), "baz".getBytes());
+
+        Iterator<Map.Entry<String, Versioned<byte[]>>> naturalIterator = naturalTree.getChildren(path("root"))
+                .join().entrySet().iterator();
+        assertEquals("a", naturalIterator.next().getKey());
+        assertEquals("b", naturalIterator.next().getKey());
+        assertEquals("c", naturalIterator.next().getKey());
+
+        AtomixDocumentTree insertionTree = newPrimitive(UUID.randomUUID().toString(), Ordering.INSERTION);
+        insertionTree.create(path("root.c"), "foo".getBytes());
+        insertionTree.create(path("root.b"), "bar".getBytes());
+        insertionTree.create(path("root.a"), "baz".getBytes());
+
+        Iterator<Map.Entry<String, Versioned<byte[]>>> insertionIterator = insertionTree.getChildren(path("root"))
+                .join().entrySet().iterator();
+        assertEquals("c", insertionIterator.next().getKey());
+        assertEquals("b", insertionIterator.next().getKey());
+        assertEquals("a", insertionIterator.next().getKey());
     }
 
     /**
@@ -366,6 +413,51 @@ public class AtomixDocumentTreeTest extends AtomixTestBase<AtomixDocumentTree> {
         assertEquals(path("root.a.b.c"), event.path());
         event = listener2abc.event();
         assertEquals(path("root.a.b.c"), event.path());
+    }
+
+    @Test
+    public void testTransaction() throws Throwable {
+        String treeName = UUID.randomUUID().toString();
+        AtomixDocumentTree tree = newPrimitive(treeName);
+
+        byte[] value1 = "abc".getBytes();
+        byte[] value2 = "def".getBytes();
+
+        assertTrue(tree.create(path("root.a"), value1).join());
+        assertTrue(tree.create(path("root.b"), value2).join());
+
+        long aVersion = tree.get(path("root.a")).join().version();
+        long bVersion = tree.get(path("root.b")).join().version();
+
+        TransactionId transactionId = TransactionId.from("1");
+        Version transactionVersion = tree.begin(transactionId).join();
+        List<NodeUpdate<byte[]>> records = Arrays.asList(
+                NodeUpdate.<byte[]>newBuilder()
+                        .withType(NodeUpdate.Type.CREATE_NODE)
+                        .withPath(path("root.c"))
+                        .withValue(value1)
+                        .build(),
+                NodeUpdate.<byte[]>newBuilder()
+                        .withType(NodeUpdate.Type.UPDATE_NODE)
+                        .withPath(path("root.a"))
+                        .withValue(value2)
+                        .withVersion(aVersion)
+                        .build(),
+                NodeUpdate.<byte[]>newBuilder()
+                        .withType(NodeUpdate.Type.DELETE_NODE)
+                        .withPath(path("root.b"))
+                        .withVersion(bVersion)
+                        .build());
+        TransactionLog<NodeUpdate<byte[]>> transactionLog = new TransactionLog<>(
+                transactionId,
+                transactionVersion.value(),
+                records);
+        assertTrue(tree.prepare(transactionLog).join());
+        tree.commit(transactionId).join();
+
+        assertArrayEquals(value2, tree.get(path("root.a")).join().value());
+        assertNull(tree.get(path("root.b")).join());
+        assertArrayEquals(value1, tree.get(path("root.c")).join().value());
     }
 
     private static class TestEventListener implements DocumentTreeListener<byte[]> {
