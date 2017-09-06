@@ -449,7 +449,6 @@ public class NewDistributedFlowTableStore
             Map<FlowTableId, List<Integer>> tids = new ConcurrentHashMap<>();
             freeFlowEntryIdMap.putIfAbsent(deviceId, tids);//initialization map all is null
         }
-
     }
     //if pof switch removed all the map well be cleared
     @Override
