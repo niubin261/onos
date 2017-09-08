@@ -71,7 +71,7 @@ import org.onosproject.store.flow.ReplicaInfoService;
 import org.onosproject.store.impl.MastershipBasedTimestamp;
 import org.onosproject.store.serializers.KryoNamespaces;
 //import org.onosproject.store.serializers.KryoSerializer;
-//import org.onosproject.store.serializers.StoreSerializer;
+import org.onosproject.store.serializers.StoreSerializer;
 import org.onosproject.store.serializers.custom.DistributedStoreSerializers;
 import org.onosproject.store.service.ConsistentMap;
 import org.onosproject.store.service.EventuallyConsistentMap;
@@ -1200,6 +1200,11 @@ public class NewDistributedFlowTableStore
                             @Override
                             public <T> T decode(byte[] bytes) {
                                 return SERIALIZER.decode(bytes);
+                            }
+
+                            @Override
+                            public <T> T copy(T object) {
+                                return SERIALIZER.copy(object);
                             }
                         })
                         .build());

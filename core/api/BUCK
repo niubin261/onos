@@ -1,14 +1,13 @@
 COMPILE_DEPS = [
     '//lib:COMPILE',
-<<<<<<< HEAD
+
     '//lib:floodlightpof',
-||||||| merged common ancestors
-=======
+
     '//lib:NETTY',
     '//lib:JACKSON',
     '//lib:METRICS',
     '//lib:KRYO',
->>>>>>> b2d0524396b2e483c8384971f6221606fc1cc49e
+
     '//utils/misc:onlab-misc',
     '//utils/osgi:onlab-osgi',
     '//utils/rest:onlab-rest',

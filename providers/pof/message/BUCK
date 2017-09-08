@@ -3,6 +3,8 @@ COMPILE_DEPS = [
     '//lib:floodlightpof',
     '//protocols/pof/api:onos-protocols-pof-api',
     '//apps/cpman/api:onos-apps-cpman-api',
+    '//lib:METRICS',
+    '//core/api:onos-api'
 ]
 
 BUNDLES = [

@@ -2,6 +2,8 @@ COMPILE_DEPS = [
     '//lib:CORE_DEPS',
     '//lib:floodlightpof',
     '//protocols/pof/api:onos-protocols-pof-api',
+    '//lib:netty',
+    '//lib:NETTY'
 ]
 
 TEST_DEPS = [
