@@ -17,6 +17,7 @@ package org.onosproject.metrics.topology;
 
 import static org.slf4j.LoggerFactory.getLogger;
 
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -199,8 +200,11 @@ public class TopologyMetrics implements TopologyMetricsService {
                 log.debug("PORT_STATS_UPDATED event ignored from metrics");
             } else {
                 recordEvent(event, topologyDeviceEventMetric);
-                log.debug("Device Event: time = {} type = {} event = {}",
-                      event.time(), event.type(), event);
+                if(event.type()== DeviceEvent.Type.DEVICE_AVAILABILITY_CHANGED){
+
+                    log.info("Device Event: time = {} type = {} event = {}",
+                            new Date(event.time()), event.type(), event);
+                }
             }
         }
     }
@@ -236,8 +240,8 @@ public class TopologyMetrics implements TopologyMetricsService {
         @Override
         public void event(TopologyEvent event) {
             recordEvent(event, topologyGraphEventMetric);
-            log.debug("Topology Event: time = {} type = {} event = {}",
-                      event.time(), event.type(), event);
+            log.info("Topology Event: time = {} type = {} event = {}",
+                      new Date(event.time()), event.type(), event);
             for (Event reason : event.reasons()) {
                 recordEvent(event, topologyGraphReasonsEventMetric);
                 log.debug("Topology Event Reason: time = {} type = {} event = {}",

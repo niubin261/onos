@@ -147,6 +147,11 @@ public interface FlowTableStore extends Store<FlowTableBatchEvent, FlowTableStor
      * @param of table resource information of switch
      */
     void setFlowTableNoBase(DeviceId deviceId, OFFlowTableResource of);
+    /**
+     * Adds flow table resource.
+     *
+     * @param deviceId device id
+     */
 
     Map<OFTableType, Byte> getFlowTableNoBaseMap(DeviceId deviceId);
 
@@ -168,8 +173,20 @@ public interface FlowTableStore extends Store<FlowTableBatchEvent, FlowTableStor
      * @return flow entry id
      */
     int getNewFlowEntryId(DeviceId deviceId, int tableId);
+    /**
+     * Returns the flow entry id in the specified flow table.
+     *
+     * @param deviceId the device id
+     * @return Map
+     */
 
     Map<OFTableType, Byte> getFlowTableNoMap(DeviceId deviceId);
+    /**
+     * Returns the flow entry id in the specified flow table.
+     *
+     * @param deviceId the device id
+     * @return Map
+     */
 
     Map<OFTableType, List<Byte>> getFreeFlowTableIDListMap(DeviceId deviceId);
 
@@ -198,7 +215,12 @@ public interface FlowTableStore extends Store<FlowTableBatchEvent, FlowTableStor
      */
     void deleteFlowEntryCount(DeviceId deviceId, FlowTableId flowTableId);
 
-
+    /**
+     * Returns the flow entry id in the specified flow table.
+     *
+     * @param deviceId the device id
+     * @return List
+     */
     List<Integer> getFreeFlowEntryIds(DeviceId deviceId, FlowTableId flowTableId);
 
     /**

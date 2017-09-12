@@ -71,7 +71,6 @@ import org.onosproject.store.flow.ReplicaInfoService;
 import org.onosproject.store.impl.MastershipBasedTimestamp;
 import org.onosproject.store.serializers.KryoNamespaces;
 //import org.onosproject.store.serializers.KryoSerializer;
-import org.onosproject.store.serializers.StoreSerializer;
 import org.onosproject.store.serializers.custom.DistributedStoreSerializers;
 import org.onosproject.store.service.ConsistentMap;
 import org.onosproject.store.service.EventuallyConsistentMap;
@@ -83,21 +82,8 @@ import org.onosproject.store.service.WallClockTimestamp;
 import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Dictionary;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -164,7 +150,7 @@ public class NewDistributedFlowTableStore
     private Map<DeviceId,Map<OFTableType, Byte>>flowTableNoBaseMap = Maps.newConcurrentMap();
 
     private ConsistentMap<DeviceId, Map<OFTableType, Byte>>flowTableNoConsistentMap;
-    private Map<DeviceId, Map<OFTableType, Byte>> flowTableNoMap = Maps.newConcurrentMap();
+    private Map<DeviceId, Map<OFTableType, Byte>> flowTableCountMap = Maps.newConcurrentMap();
 
     private ConsistentMap<DeviceId, Map<OFTableType, List<Byte>>> freeFlowTableIdListConsistentMap;
     private Map<DeviceId, Map<OFTableType, List<Byte>>> freeFlowTableIdListMap = Maps.newConcurrentMap();
@@ -284,7 +270,7 @@ public class NewDistributedFlowTableStore
                 .withSerializer(SERIALIZER)
                 .withRelaxedReadConsistency()
                 .build();
-        flowTableNoMap =flowTableNoConsistentMap.asJavaMap();
+        flowTableCountMap =flowTableNoConsistentMap.asJavaMap();
 
         freeFlowTableIdListConsistentMap = storageService.<DeviceId,Map<OFTableType,List<Byte>>>consistentMapBuilder()
                 .withName("onos-flowtable-list")
@@ -433,20 +419,18 @@ public class NewDistributedFlowTableStore
     public void initializeSwitchStore(DeviceId deviceId) {
 
         log.info("initializeSwitchStore for device: {}", deviceId);
-        if (flowEntryCountMap.containsKey(deviceId)) {
-            //TODO nothing
-        } else {
+
+        if (!flowEntryCountMap.containsKey(deviceId)) {
 
             Map<FlowTableId, Integer> tcount = new ConcurrentHashMap<>();
             tcount.put(FlowTableId.valueOf(0),0);
             flowEntryCountMap.putIfAbsent(deviceId, tcount);
         }
-        if (freeFlowEntryIdMap.containsKey(deviceId)) {
-            //TODO nothing
-        } else {
+        if (!freeFlowEntryIdMap.containsKey(deviceId)) {
 
             List<Integer> ids = new ArrayList<>();
             Map<FlowTableId, List<Integer>> tids = new ConcurrentHashMap<>();
+            tids.put(FlowTableId.valueOf(0),ids);
             freeFlowEntryIdMap.putIfAbsent(deviceId, tids);//initialization map all is null
         }
     }
@@ -460,7 +444,7 @@ public class NewDistributedFlowTableStore
         flowEntries.remove(deviceId);
 
         freeFlowTableIdListMap.remove(deviceId);
-        flowTableNoMap.remove(deviceId);
+        flowTableCountMap.remove(deviceId);
         flowTableNoBaseMap.remove(deviceId);
         flowTable.removeDevice(deviceId);
     }
@@ -497,9 +481,17 @@ public class NewDistributedFlowTableStore
             freeIDListMap.put(OFTableType.values()[tableType], new ArrayList<Byte>());
             base += tableResource.getTableNum();
         }
-        this.flowTableNoMap.put(deviceId, noMap);
-        this.flowTableNoBaseMap.put(deviceId, noBaseMap);
-        this.freeFlowTableIdListMap.put(deviceId, freeIDListMap);
+        if(!this.flowTableCountMap.containsKey(deviceId)){
+            this.flowTableCountMap.put(deviceId, noMap);
+        }
+        if(!this.flowEntryCountMap.containsKey(deviceId)){
+
+            this.flowTableNoBaseMap.put(deviceId, noBaseMap);
+        }
+        if(!this.freeFlowTableIdListMap.containsKey(deviceId)){
+
+            this.freeFlowTableIdListMap.put(deviceId, freeIDListMap);
+        }
 
         Map<FlowTableId, Map<Integer, FlowRule>> tfs = new ConcurrentHashMap<>();//the max size of table no is 128
         for ( byte i = 0; i< base; i++) {
@@ -550,23 +542,22 @@ public class NewDistributedFlowTableStore
 
     @Override
     public Map<OFTableType, Byte> getFlowTableNoBaseMap(DeviceId deviceId) {
-        return this.flowTableNoBaseMap.get(deviceId);
+        return flowTableNoBaseMap.get(deviceId);
     }
 
     @Override
     public Map<OFTableType, Byte> getFlowTableNoMap(DeviceId deviceId) {
 
-        return this.flowTableNoMap.get(deviceId);
+        return flowTableCountMap.get(deviceId);
     }
 
     @Override
     public Map<OFTableType, List<Byte>> getFreeFlowTableIDListMap(DeviceId deviceId) {
-        return this.freeFlowTableIdListMap.get(deviceId);
+        return freeFlowTableIdListMap.get(deviceId);
     }
 
     @Override
     public int getFlowEntryCount(DeviceId deviceId, FlowTableId flowTableId) {
-
         return flowEntryCountMap.get(deviceId).get(flowTableId);
     }
 
@@ -1044,16 +1035,16 @@ public class NewDistributedFlowTableStore
             if (null == freeFlowTableIdListMap.get(deviceId)
                     || null == freeFlowTableIdListMap.get(deviceId).get(ofTableType)
                     || 0 == freeFlowTableIdListMap.get(deviceId).get(ofTableType).size()) {
-                newFlowTableID = flowTableNoMap.get(deviceId).get(ofTableType);
-                for(OFTableType ofTableTypeTmp: flowTableNoMap.get(deviceId).keySet()){
+                newFlowTableID = flowTableCountMap.get(deviceId).get(ofTableType);
+                for(OFTableType ofTableTypeTmp : flowTableCountMap.get(deviceId).keySet()){
                     if(ofTableTypeTmp.equals(ofTableType)){
                         this.flowTableNoTmpMap.put(ofTableTypeTmp, Byte.valueOf((byte)(newFlowTableID + 1)));
                     } else {
                         this.flowTableNoTmpMap.put(ofTableTypeTmp,
-                                                   flowTableNoMap.get(deviceId).get(ofTableTypeTmp));
+                                                   flowTableCountMap.get(deviceId).get(ofTableTypeTmp));
                     }
                 }
-                flowTableNoMap.put(deviceId, this.flowTableNoTmpMap);
+                flowTableCountMap.put(deviceId, this.flowTableNoTmpMap);
             } else {
                 newFlowTableID = freeFlowTableIdListMap.get(deviceId).get(ofTableType).remove(0);
             }
