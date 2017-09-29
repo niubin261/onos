@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-present Open Networking Laboratory
+ * Copyright 2014-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import org.onlab.packet.ChassisId;
 import org.onlab.packet.EthType;
 import org.onlab.packet.Ip4Address;
@@ -137,6 +138,7 @@ import org.onosproject.net.flow.criteria.OchSignalCriterion;
 import org.onosproject.net.flow.criteria.OchSignalTypeCriterion;
 import org.onosproject.net.flow.criteria.OduSignalIdCriterion;
 import org.onosproject.net.flow.criteria.OduSignalTypeCriterion;
+import org.onosproject.net.flow.criteria.PiCriterion;
 import org.onosproject.net.flow.criteria.PortCriterion;
 import org.onosproject.net.flow.criteria.SctpPortCriterion;
 import org.onosproject.net.flow.criteria.TcpPortCriterion;
@@ -151,6 +153,7 @@ import org.onosproject.net.flow.instructions.L1ModificationInstruction;
 import org.onosproject.net.flow.instructions.L2ModificationInstruction;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction;
 import org.onosproject.net.flow.instructions.L4ModificationInstruction;
+import org.onosproject.net.flow.instructions.PiInstruction;
 import org.onosproject.net.flowobjective.DefaultFilteringObjective;
 import org.onosproject.net.flowobjective.DefaultForwardingObjective;
 import org.onosproject.net.flowobjective.DefaultNextObjective;
@@ -183,6 +186,7 @@ import org.onosproject.net.intent.SinglePointToMultiPointIntent;
 import org.onosproject.net.intent.constraint.AnnotationConstraint;
 import org.onosproject.net.intent.constraint.BandwidthConstraint;
 import org.onosproject.net.intent.constraint.BooleanConstraint;
+import org.onosproject.net.intent.constraint.DomainConstraint;
 import org.onosproject.net.intent.constraint.EncapsulationConstraint;
 import org.onosproject.net.intent.constraint.HashedPathSelectionConstraint;
 import org.onosproject.net.intent.constraint.LatencyConstraint;
@@ -196,7 +200,32 @@ import org.onosproject.net.meter.MeterId;
 import org.onosproject.net.packet.DefaultOutboundPacket;
 import org.onosproject.net.packet.DefaultPacketRequest;
 import org.onosproject.net.packet.PacketPriority;
+import org.onosproject.net.pi.model.PiMatchType;
+import org.onosproject.net.pi.model.PiPipeconfId;
+import org.onosproject.net.pi.runtime.PiAction;
+import org.onosproject.net.pi.runtime.PiActionGroup;
+import org.onosproject.net.pi.runtime.PiActionGroupId;
+import org.onosproject.net.pi.runtime.PiActionGroupMember;
+import org.onosproject.net.pi.runtime.PiActionGroupMemberId;
+import org.onosproject.net.pi.runtime.PiActionId;
+import org.onosproject.net.pi.runtime.PiActionParam;
+import org.onosproject.net.pi.runtime.PiActionParamId;
+import org.onosproject.net.pi.runtime.PiExactFieldMatch;
+import org.onosproject.net.pi.runtime.PiFieldMatch;
+import org.onosproject.net.pi.runtime.PiActionProfileId;
+import org.onosproject.net.pi.runtime.PiHeaderFieldId;
+import org.onosproject.net.pi.runtime.PiLpmFieldMatch;
+import org.onosproject.net.pi.runtime.PiMatchKey;
+import org.onosproject.net.pi.runtime.PiPacketMetadata;
+import org.onosproject.net.pi.runtime.PiPacketMetadataId;
+import org.onosproject.net.pi.runtime.PiPacketOperation;
+import org.onosproject.net.pi.runtime.PiPipeconfConfig;
+import org.onosproject.net.pi.runtime.PiRangeFieldMatch;
+import org.onosproject.net.pi.runtime.PiTableAction;
+import org.onosproject.net.pi.runtime.PiTableEntry;
 import org.onosproject.net.pi.runtime.PiTableId;
+import org.onosproject.net.pi.runtime.PiTernaryFieldMatch;
+import org.onosproject.net.pi.runtime.PiValidFieldMatch;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.region.DefaultRegion;
 import org.onosproject.net.region.Region;
@@ -213,10 +242,10 @@ import org.onosproject.store.Timestamp;
 import org.onosproject.store.primitives.MapUpdate;
 import org.onosproject.store.primitives.TransactionId;
 import org.onosproject.store.service.MapEvent;
-import org.onosproject.store.service.TransactionLog;
 import org.onosproject.store.service.MultimapEvent;
 import org.onosproject.store.service.SetEvent;
 import org.onosproject.store.service.Task;
+import org.onosproject.store.service.TransactionLog;
 import org.onosproject.store.service.Versioned;
 import org.onosproject.store.service.WorkQueueStats;
 import org.onosproject.ui.model.topo.UiTopoLayoutId;
@@ -288,6 +317,7 @@ public final class KryoNamespaces {
                       LinkedHashSet.class
             )
             .register(HashMultiset.class)
+            .register(Sets.class)
             .register(Maps.immutableEntry("a", "b").getClass())
             .register(new ArraysAsListSerializer(), Arrays.asList().getClass())
             .register(Collections.singletonList(1).getClass())
@@ -375,7 +405,6 @@ public final class KryoNamespaces {
                     DefaultFlowRule.class,
                     TableId.class,
                     IndexTableId.class,
-                    PiTableId.class,
                     FlowRule.FlowRemoveReason.class,
                     DefaultPacketRequest.class,
                     PacketPriority.class,
@@ -578,6 +607,40 @@ public final class KryoNamespaces {
             .register(MarkerResource.class)
             .register(new BitSetSerializer(), BitSet.class)
             .register(DomainIntent.class)
+            .register(DomainConstraint.class)
+            .register(
+                    // PI model
+                    PiMatchType.class,
+                    PiPipeconfId.class,
+                    // PI Runtime
+                    PiAction.class,
+                    PiActionGroup.class,
+                    PiActionGroupId.class,
+                    PiActionGroupMember.class,
+                    PiActionGroupMemberId.class,
+                    PiActionId.class,
+                    PiActionParam.class,
+                    PiActionParamId.class,
+                    PiExactFieldMatch.class,
+                    PiFieldMatch.class,
+                    PiHeaderFieldId.class,
+                    PiLpmFieldMatch.class,
+                    PiMatchKey.class,
+                    PiPacketMetadata.class,
+                    PiPacketMetadataId.class,
+                    PiPacketOperation.class,
+                    PiPipeconfConfig.class,
+                    PiRangeFieldMatch.class,
+                    PiTableAction.class,
+                    PiTableEntry.class,
+                    PiTableId.class,
+                    PiTernaryFieldMatch.class,
+                    PiValidFieldMatch.class,
+                    PiActionProfileId.class,
+                    // Other
+                    PiCriterion.class,
+                    PiInstruction.class
+            )
             .build("API");
 
     /**

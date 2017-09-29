@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-present Open Networking Laboratory
+ * Copyright 2014-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ public class DefaultPortDescription extends AbstractDescription
      */
     public DefaultPortDescription(PortDescription base,
                                   SparseAnnotations annotations) {
-        this(base.portNumber(), base.isEnabled(), base.type(), base.portSpeed(),
+        this(base.portNumber(), base.isEnabled(), base.isRemoved(), base.type(), base.portSpeed(),
              annotations);
     }
 
@@ -150,6 +150,7 @@ public class DefaultPortDescription extends AbstractDescription
         return MoreObjects.toStringHelper(getClass())
                 .add("number", number)
                 .add("isEnabled", isEnabled)
+                .add("isRemoved", isRemoved)
                 .add("type", type)
                 .add("portSpeed", portSpeed)
                 .add("annotations", annotations())

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ import org.onosproject.core.ApplicationId;
 import org.onosproject.core.DefaultApplication;
 import org.onosproject.core.DefaultApplicationId;
 import org.onosproject.core.GroupId;
-import org.onosproject.incubator.net.intf.Interface;
+import org.onosproject.net.intf.Interface;
 import org.onosproject.incubator.net.virtual.DefaultVirtualDevice;
 import org.onosproject.incubator.net.virtual.DefaultVirtualNetwork;
 import org.onosproject.incubator.net.virtual.DefaultVirtualPort;
@@ -161,9 +161,22 @@ public class ComparatorsTest {
     }
 
     private Application app(int id, String name) {
-        return new DefaultApplication(new DefaultApplicationId(id, name), VER, TITLE, DESC, ORIGIN,
-                CATEGORY, URL, README, ICON, ROLE,
-                PERMS, Optional.of(FURL), FEATURES, APPS);
+        return DefaultApplication.builder()
+                .withAppId(new DefaultApplicationId(id, name))
+                .withVersion(VER)
+                .withTitle(TITLE)
+                .withDescription(DESC)
+                .withOrigin(ORIGIN)
+                .withCategory(CATEGORY)
+                .withUrl(URL)
+                .withReadme(README)
+                .withIcon(ICON)
+                .withRole(ROLE)
+                .withPermissions(PERMS)
+                .withFeaturesRepo(Optional.of(FURL))
+                .withFeatures(FEATURES)
+                .withRequiredApps(APPS)
+                .build();
     }
 
     @Test
@@ -338,7 +351,7 @@ public class ComparatorsTest {
     public void testVirtualNetworkComparator() {
         assertNotEquals(0, VIRTUAL_NETWORK_COMPARATOR.compare(network(10, "tenantID"), network(10, "tenantID1")));
         assertNotEquals(0, VIRTUAL_NETWORK_COMPARATOR.compare(network(10, "tenantID"), network(15, "tenantID1")));
-        assertEquals(0, VIRTUAL_NETWORK_COMPARATOR.compare(network(15, "tenantID1"), network(10, "tenantID1")));
+        assertNotEquals(0, VIRTUAL_NETWORK_COMPARATOR.compare(network(15, "tenantID1"), network(10, "tenantID1")));
         assertNotEquals(0, VIRTUAL_NETWORK_COMPARATOR.compare(network(15, "tenantID"), network(10, "tenantID1")));
     }
 

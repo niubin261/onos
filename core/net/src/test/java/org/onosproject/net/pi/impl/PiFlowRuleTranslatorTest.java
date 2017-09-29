@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.onosproject.net.pi.impl.MockInterpreter.*;
+import static org.onosproject.net.pi.impl.PiFlowRuleTranslator.MAX_PI_PRIORITY;
 
 /**
  * Tests for {@link PiFlowRuleTranslator}.
@@ -53,6 +54,8 @@ import static org.onosproject.net.pi.impl.MockInterpreter.*;
 public class PiFlowRuleTranslatorTest {
 
     private static final String BMV2_JSON_PATH = "/org/onosproject/net/pi/impl/default.json";
+    private static final short IN_PORT_MASK = 0x01ff; // 9-bit mask
+    private static final short ETH_TYPE_MASK = (short) 0xffff;
 
     private Random random = new Random();
     private PiPipeconf pipeconf;
@@ -124,28 +127,36 @@ public class PiFlowRuleTranslatorTest {
 
         int numMatchParams = pipeconf.pipelineModel().table(TABLE0).get().matchFields().size();
         // parse values stored in entry1
-        PiTernaryFieldMatch inPortParam = (PiTernaryFieldMatch) entry1.fieldMatch(IN_PORT_ID).get();
-        PiTernaryFieldMatch ethDstParam = (PiTernaryFieldMatch) entry1.fieldMatch(ETH_DST_ID).get();
-        PiTernaryFieldMatch ethSrcParam = (PiTernaryFieldMatch) entry1.fieldMatch(ETH_SRC_ID).get();
-        PiTernaryFieldMatch ethTypeParam = (PiTernaryFieldMatch) entry1.fieldMatch(ETH_TYPE_ID).get();
+        PiTernaryFieldMatch inPortParam = (PiTernaryFieldMatch) entry1.matchKey().fieldMatch(IN_PORT_ID).get();
+        PiTernaryFieldMatch ethDstParam = (PiTernaryFieldMatch) entry1.matchKey().fieldMatch(ETH_DST_ID).get();
+        PiTernaryFieldMatch ethSrcParam = (PiTernaryFieldMatch) entry1.matchKey().fieldMatch(ETH_SRC_ID).get();
+        PiTernaryFieldMatch ethTypeParam = (PiTernaryFieldMatch) entry1.matchKey().fieldMatch(ETH_TYPE_ID).get();
         Optional<Double> expectedTimeout = pipeconf.pipelineModel().table(TABLE0).get().supportsAging()
                 ? Optional.of((double) rule1.timeout()) : Optional.empty();
 
         // check that the number of parameters in the entry is the same as the number of table keys
         assertThat("Incorrect number of match parameters",
-                   entry1.fieldMatches().size(), is(equalTo(numMatchParams)));
+                   entry1.matchKey().fieldMatches().size(), is(equalTo(numMatchParams)));
 
         // check that values stored in entry are the same used for the flow rule
         assertThat("Incorrect inPort match param value",
                    inPortParam.value().asReadOnlyBuffer().getShort(), is(equalTo(inPort)));
+        assertThat("Incorrect inPort match param mask",
+                   inPortParam.mask().asReadOnlyBuffer().getShort(), is(equalTo(IN_PORT_MASK)));
         assertThat("Incorrect ethDestMac match param value",
                    ethDstParam.value().asArray(), is(equalTo(ethDstMac.toBytes())));
+        assertThat("Incorrect ethDestMac match param mask",
+                   ethDstParam.mask().asArray(), is(equalTo(MacAddress.BROADCAST.toBytes())));
         assertThat("Incorrect ethSrcMac match param value",
                    ethSrcParam.value().asArray(), is(equalTo(ethSrcMac.toBytes())));
+        assertThat("Incorrect ethSrcMac match param mask",
+                   ethSrcParam.mask().asArray(), is(equalTo(MacAddress.BROADCAST.toBytes())));
         assertThat("Incorrect ethType match param value",
                    ethTypeParam.value().asReadOnlyBuffer().getShort(), is(equalTo(ethType)));
+        assertThat("Incorrect ethType match param mask",
+                   ethTypeParam.mask().asReadOnlyBuffer().getShort(), is(equalTo(ETH_TYPE_MASK)));
         assertThat("Incorrect priority value",
-                   entry1.priority().get(), is(equalTo(rule1.priority())));
+                   entry1.priority().get(), is(equalTo(MAX_PI_PRIORITY - rule1.priority())));
         assertThat("Incorrect timeout value",
                    entry1.timeout(), is(equalTo(expectedTimeout)));
 

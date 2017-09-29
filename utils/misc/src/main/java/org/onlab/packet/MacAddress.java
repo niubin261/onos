@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-present Open Networking Laboratory
+ * Copyright 2014-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,6 +55,14 @@ public class MacAddress {
      * IPv4 multicast MAC mask.
      */
     public static final MacAddress IPV4_MULTICAST_MASK = valueOf("ff:ff:ff:80:00:00");
+    /**
+     * IPv6 multicast MAC address.
+     */
+    public static final MacAddress IPV6_MULTICAST = valueOf("33:33:00:00:00:00");
+    /**
+     * IPv6 multicast MAC mask.
+     */
+    public static final MacAddress IPV6_MULTICAST_MASK = valueOf("FF:FF:00:00:00:00");
     /**
      * A set of LLDP MAC addresses.
      */

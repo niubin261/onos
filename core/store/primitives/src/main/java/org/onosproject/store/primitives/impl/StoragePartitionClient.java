@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ import org.onosproject.store.service.AsyncDistributedSet;
 import org.onosproject.store.service.AsyncDocumentTree;
 import org.onosproject.store.service.AsyncLeaderElector;
 import org.onosproject.store.service.DistributedPrimitive;
+import org.onosproject.store.service.Ordering;
 import org.onosproject.store.service.PartitionClientInfo;
 import org.onosproject.store.service.Serializer;
 import org.onosproject.store.service.WorkQueue;
@@ -100,8 +101,9 @@ public class StoragePartitionClient implements DistributedPrimitiveCreator, Mana
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public <K, V> AsyncConsistentMap<K, V> newAsyncConsistentMap(String name, Serializer serializer) {
-        AtomixConsistentMap atomixConsistentMap =
+        AtomixConsistentMap rawMap =
                 new AtomixConsistentMap(client.newProxyBuilder()
                         .withName(name)
                         .withServiceType(DistributedPrimitive.Type.CONSISTENT_MAP.name())
@@ -113,27 +115,20 @@ public class StoragePartitionClient implements DistributedPrimitiveCreator, Mana
                         .open()
                         .join());
 
-        AsyncConsistentMap<String, byte[]> rawMap =
-                new DelegatingAsyncConsistentMap<String, byte[]>(atomixConsistentMap) {
-                    @Override
-                    public String name() {
-                        return name;
-                    }
-                };
-
-        // We have to ensure serialization is done on the Copycat threads since Kryo is not thread safe.
-        AsyncConsistentMap<K, V> transcodedMap = DistributedPrimitives.newTranscodingMap(rawMap,
-                key -> HexString.toHexString(serializer.encode(key)),
-                string -> serializer.decode(HexString.fromHexString(string)),
-                value -> value == null ? null : serializer.encode(value),
-                bytes -> serializer.decode(bytes));
-
-        return transcodedMap;
+        if (serializer != null) {
+            return DistributedPrimitives.newTranscodingMap(rawMap,
+                    key -> HexString.toHexString(serializer.encode(key)),
+                    string -> serializer.decode(HexString.fromHexString(string)),
+                    value -> value == null ? null : serializer.encode(value),
+                    bytes -> serializer.decode(bytes));
+        }
+        return (AsyncConsistentMap<K, V>) rawMap;
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public <V> AsyncConsistentTreeMap<V> newAsyncConsistentTreeMap(String name, Serializer serializer) {
-        AtomixConsistentTreeMap atomixConsistentTreeMap =
+        AtomixConsistentTreeMap rawMap =
                 new AtomixConsistentTreeMap(client.newProxyBuilder()
                         .withName(name)
                         .withServiceType(DistributedPrimitive.Type.CONSISTENT_TREEMAP.name())
@@ -145,26 +140,19 @@ public class StoragePartitionClient implements DistributedPrimitiveCreator, Mana
                         .open()
                         .join());
 
-        AsyncConsistentTreeMap<byte[]> rawMap =
-                new DelegatingAsyncConsistentTreeMap<byte[]>(atomixConsistentTreeMap) {
-                    @Override
-                    public String name() {
-                        return name;
-                    }
-                };
-
-        AsyncConsistentTreeMap<V> transcodedMap =
-                DistributedPrimitives.<V, byte[]>newTranscodingTreeMap(
-                        rawMap,
-                        value -> value == null ? null : serializer.encode(value),
-                        bytes -> serializer.decode(bytes));
-
-        return transcodedMap;
+        if (serializer != null) {
+            return DistributedPrimitives.newTranscodingTreeMap(
+                            rawMap,
+                            value -> value == null ? null : serializer.encode(value),
+                            bytes -> serializer.decode(bytes));
+        }
+        return (AsyncConsistentTreeMap<V>) rawMap;
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public <K, V> AsyncConsistentMultimap<K, V> newAsyncConsistentSetMultimap(String name, Serializer serializer) {
-        AtomixConsistentSetMultimap atomixConsistentSetMultimap =
+        AtomixConsistentSetMultimap rawMap =
                 new AtomixConsistentSetMultimap(client.newProxyBuilder()
                         .withName(name)
                         .withServiceType(DistributedPrimitive.Type.CONSISTENT_MULTIMAP.name())
@@ -176,24 +164,15 @@ public class StoragePartitionClient implements DistributedPrimitiveCreator, Mana
                         .open()
                         .join());
 
-        AsyncConsistentMultimap<String, byte[]> rawMap =
-                new DelegatingAsyncConsistentMultimap<String, byte[]>(
-                        atomixConsistentSetMultimap) {
-                    @Override
-                    public String name() {
-                        return super.name();
-                    }
-                };
-
-        AsyncConsistentMultimap<K, V> transcodedMap =
-                DistributedPrimitives.newTranscodingMultimap(
-                        rawMap,
-                        key -> HexString.toHexString(serializer.encode(key)),
-                        string -> serializer.decode(HexString.fromHexString(string)),
-                        value -> serializer.encode(value),
-                        bytes -> serializer.decode(bytes));
-
-        return transcodedMap;
+        if (serializer != null) {
+            return DistributedPrimitives.newTranscodingMultimap(
+                            rawMap,
+                            key -> HexString.toHexString(serializer.encode(key)),
+                            string -> serializer.decode(HexString.fromHexString(string)),
+                            value -> serializer.encode(value),
+                            bytes -> serializer.decode(bytes));
+        }
+        return (AsyncConsistentMultimap<K, V>) rawMap;
     }
 
     @Override
@@ -202,8 +181,9 @@ public class StoragePartitionClient implements DistributedPrimitiveCreator, Mana
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public <K> AsyncAtomicCounterMap<K> newAsyncAtomicCounterMap(String name, Serializer serializer) {
-        AtomixAtomicCounterMap atomixAtomicCounterMap = new AtomixAtomicCounterMap(client.newProxyBuilder()
+        AtomixAtomicCounterMap rawMap = new AtomixAtomicCounterMap(client.newProxyBuilder()
                 .withName(name)
                 .withServiceType(DistributedPrimitive.Type.COUNTER_MAP.name())
                 .withReadConsistency(ReadConsistency.LINEARIZABLE_LEASE)
@@ -214,13 +194,13 @@ public class StoragePartitionClient implements DistributedPrimitiveCreator, Mana
                 .open()
                 .join());
 
-        AsyncAtomicCounterMap<K> transcodedMap =
-                DistributedPrimitives.newTranscodingAtomicCounterMap(
-                        atomixAtomicCounterMap,
-                        key -> HexString.toHexString(serializer.encode(key)),
-                        string -> serializer.decode(HexString.fromHexString(string)));
-
-        return transcodedMap;
+        if (serializer != null) {
+            return DistributedPrimitives.newTranscodingAtomicCounterMap(
+                            rawMap,
+                            key -> HexString.toHexString(serializer.encode(key)),
+                            string -> serializer.decode(HexString.fromHexString(string)));
+        }
+        return (AsyncAtomicCounterMap<K>) rawMap;
     }
 
     @Override
@@ -263,10 +243,10 @@ public class StoragePartitionClient implements DistributedPrimitiveCreator, Mana
     }
 
     @Override
-    public <V> AsyncDocumentTree<V> newAsyncDocumentTree(String name, Serializer serializer) {
+    public <V> AsyncDocumentTree<V> newAsyncDocumentTree(String name, Serializer serializer, Ordering ordering) {
         AtomixDocumentTree atomixDocumentTree = new AtomixDocumentTree(client.newProxyBuilder()
                 .withName(name)
-                .withServiceType(DistributedPrimitive.Type.DOCUMENT_TREE.name())
+                .withServiceType(String.format("%s-%s", DistributedPrimitive.Type.DOCUMENT_TREE.name(), ordering))
                 .withReadConsistency(ReadConsistency.SEQUENTIAL)
                 .withCommunicationStrategy(CommunicationStrategy.ANY)
                 .withTimeout(Duration.ofSeconds(30))

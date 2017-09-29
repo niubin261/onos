@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ public class PiPipeconfManager implements PiPipeconfService {
 
     protected ExecutorService executor =
             Executors.newFixedThreadPool(5, groupedThreads("onos/pipipeconfservice",
-                                                           "pipeline-to-device-%d", log));
+                    "pipeline-to-device-%d", log));
 
     protected final ConfigFactory factory =
             new ConfigFactory<DeviceId, PiPipeconfConfig>(
@@ -138,6 +138,16 @@ public class PiPipeconfManager implements PiPipeconfService {
     }
 
     @Override
+    public void remove(PiPipeconfId pipeconfId) throws IllegalStateException {
+        //TODO move to the distributed mechanism
+        //TODO add mechanism to remove from device.
+        if (!piPipeconfs.containsKey(pipeconfId)) {
+            throw new IllegalStateException(format("Pipeconf %s is not registered", pipeconfId));
+        }
+        piPipeconfs.remove(pipeconfId);
+    }
+
+    @Override
     public Iterable<PiPipeconf> getPipeconfs() {
         return piPipeconfs.values();
     }
@@ -170,7 +180,7 @@ public class PiPipeconfManager implements PiPipeconfService {
                 } catch (ItemNotFoundException e) {
 
                     log.debug("First time pipeconf {} is used with base driver {}, merging the two",
-                              pipeconfId, baseDriver);
+                            pipeconfId, baseDriver);
                     //extract the behaviours from the pipipeconf.
                     Map<Class<? extends Behaviour>, Class<? extends Behaviour>> behaviours = new HashMap<>();
                     piPipeconf.behaviours().forEach(b -> {
@@ -178,8 +188,8 @@ public class PiPipeconfManager implements PiPipeconfService {
                     });
 
                     Driver piPipeconfDriver = new DefaultDriver(completeDriverName, baseDriver.parents(),
-                                                                baseDriver.manufacturer(), baseDriver.hwVersion(),
-                                                                baseDriver.swVersion(), behaviours, new HashMap<>());
+                            baseDriver.manufacturer(), baseDriver.hwVersion(),
+                            baseDriver.swVersion(), behaviours, new HashMap<>());
                     //we take the base driver created with the behaviours of the PiPeconf and
                     // merge it with the base driver that was assigned to the device
                     Driver completeDriver = piPipeconfDriver.merge(baseDriver);
@@ -192,14 +202,17 @@ public class PiPipeconfManager implements PiPipeconfService {
                     driverAdminService.registerProvider(provider);
                 }
 
-                //Changing the configuration for the device to enforce the full driver with pipipeconf
+                // Changing the configuration for the device to enforce the full driver with pipipeconf
                 // and base behaviours
                 ObjectNode newCfg = (ObjectNode) basicDeviceConfig.node();
                 newCfg = newCfg.put(DRIVER, completeDriverName);
                 ObjectMapper mapper = new ObjectMapper();
                 JsonNode newCfgNode = mapper.convertValue(newCfg, JsonNode.class);
                 cfgService.applyConfig(deviceId, BasicDeviceConfig.class, newCfgNode);
-                //Completable future is needed for when this method will also apply the pipeline to the device.
+                // Completable future is needed for when this method will also apply the pipeline to the device.
+                // FIXME (maybe): the pipeline is currently applied by the general device provider. But we store here
+                // the association between device and pipeconf.
+                devicesToPipeconf.put(deviceId, pipeconfId);
                 operationResult.complete(true);
             }
         });

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ public class DistributedDhcpRelayStore implements DhcpRelayStore {
 
     @Override
     public void setDelegate(StoreDelegate<DhcpRelayStoreEvent> delegate) {
-        checkNotNull("Delegate can't be null", delegate);
+        checkNotNull(delegate, "Delegate can't be null");
         this.delegate = delegate;
     }
 

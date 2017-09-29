@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-present Open Networking Laboratory
+ * Copyright 2014-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,14 +75,15 @@ import org.onosproject.store.AbstractStore;
 import org.onosproject.store.Timestamp;
 import org.onosproject.store.cluster.messaging.ClusterCommunicationService;
 import org.onosproject.store.cluster.messaging.MessageSubject;
+import org.onosproject.store.impl.MastershipBasedTimestamp;
 import org.onosproject.store.impl.Timestamped;
 import org.onosproject.store.serializers.KryoNamespaces;
-import org.onosproject.store.serializers.StoreSerializer;
 import org.onosproject.store.serializers.custom.DistributedStoreSerializers;
 import org.onosproject.store.service.EventuallyConsistentMap;
 import org.onosproject.store.service.EventuallyConsistentMapEvent;
 import org.onosproject.store.service.EventuallyConsistentMapListener;
 import org.onosproject.store.service.MultiValuedTimestamp;
+import org.onosproject.store.service.Serializer;
 import org.onosproject.store.service.StorageService;
 import org.onosproject.store.service.WallClockTimestamp;
 import org.slf4j.Logger;
@@ -170,8 +171,9 @@ public class GossipDeviceStore
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected MastershipTermService termService;
 
+    private static final Timestamp DEFAULT_TIMESTAMP = new MastershipBasedTimestamp(0, 0);
 
-    protected static final StoreSerializer SERIALIZER = StoreSerializer.using(KryoNamespace.newBuilder()
+    protected static final Serializer SERIALIZER = Serializer.using(KryoNamespace.newBuilder()
                     .register(DistributedStoreSerializers.STORE_COMMON)
                     .nextId(DistributedStoreSerializers.STORE_CUSTOM_BEGIN)
                     .register(new InternalDeviceEventSerializer(), InternalDeviceEvent.class)
@@ -302,28 +304,34 @@ public class GossipDeviceStore
                                                          DeviceDescription deviceDescription) {
         NodeId localNode = clusterService.getLocalNode().id();
         NodeId deviceNode = mastershipService.getMasterFor(deviceId);
+        final boolean isMaster = localNode.equals(deviceNode);
 
         // Process device update only if we're the master,
         // otherwise signal the actual master.
         DeviceEvent deviceEvent = null;
-        if (localNode.equals(deviceNode)) {
 
-            final Timestamp newTimestamp = deviceClockService.getTimestamp(deviceId);
-            final Timestamped<DeviceDescription> deltaDesc = new Timestamped<>(deviceDescription, newTimestamp);
-            final Timestamped<DeviceDescription> mergedDesc;
-            final Map<ProviderId, DeviceDescriptions> device = getOrCreateDeviceDescriptionsMap(deviceId);
+        // If this node is the master for the device, acquire a new timestamp. Otherwise,
+        // use a 0,0 or tombstone timestamp to create the device if it doesn't already exist.
+        final Timestamp newTimestamp = isMaster
+                ? deviceClockService.getTimestamp(deviceId)
+                : removalRequest.getOrDefault(deviceId, DEFAULT_TIMESTAMP);
+        final Timestamped<DeviceDescription> deltaDesc = new Timestamped<>(deviceDescription, newTimestamp);
+        final Timestamped<DeviceDescription> mergedDesc;
+        final Map<ProviderId, DeviceDescriptions> device = getOrCreateDeviceDescriptionsMap(deviceId);
 
-            synchronized (device) {
-                deviceEvent = createOrUpdateDeviceInternal(providerId, deviceId, deltaDesc);
-                mergedDesc = device.get(providerId).getDeviceDesc();
+        synchronized (device) {
+            deviceEvent = createOrUpdateDeviceInternal(providerId, deviceId, deltaDesc);
+            if (deviceEvent == null) {
+                return null;
             }
+            mergedDesc = device.get(providerId).getDeviceDesc();
+        }
 
-            if (deviceEvent != null) {
-                log.debug("Notifying peers of a device update topology event for providerId: {} and deviceId: {}",
-                          providerId, deviceId);
-                notifyPeers(new InternalDeviceEvent(providerId, deviceId, mergedDesc));
-            }
-
+        // If this node is the master for the device, update peers.
+        if (isMaster) {
+            log.debug("Notifying peers of a device update topology event for providerId: {} and deviceId: {}",
+                    providerId, deviceId);
+            notifyPeers(new InternalDeviceEvent(providerId, deviceId, mergedDesc));
         } else {
             return null;
         }
@@ -391,6 +399,7 @@ public class GossipDeviceStore
             markOnline(newDevice.id(), timestamp);
         }
 
+        log.debug("Device {} added", newDevice.id());
         return new DeviceEvent(DeviceEvent.Type.DEVICE_ADDED, newDevice, null);
     }
 
@@ -421,6 +430,7 @@ public class GossipDeviceStore
                        providerId, oldDevice, devices.get(newDevice.id()), newDevice);
             }
 
+            log.debug("Device {} updated", newDevice.id());
             event = new DeviceEvent(DeviceEvent.Type.DEVICE_UPDATED, newDevice, null);
         }
 
@@ -1028,7 +1038,10 @@ public class GossipDeviceStore
             }
         }
 
-        if (!myId.equals(master)) {
+        boolean isMaster = myId.equals(master);
+
+        // If this node is not the master, forward the request.
+        if (!isMaster) {
             log.debug("{} has control of {}, forwarding remove request",
                       master, deviceId);
 
@@ -1037,20 +1050,21 @@ public class GossipDeviceStore
              /* error log:
              log.error("Failed to forward {} remove request to {}", deviceId, master, e);
              */
-
-            // event will be triggered after master processes it.
-            return null;
         }
 
-        // I have control..
+        // If this node is the master, get a timestamp. Otherwise, default to the current device timestamp.
+        Timestamp timestamp = isMaster ? deviceClockService.getTimestamp(deviceId) : null;
 
-        Timestamp timestamp = deviceClockService.getTimestamp(deviceId);
         DeviceEvent event = removeDeviceInternal(deviceId, timestamp);
-        if (event != null) {
+
+        // If this node is the master, update peers.
+        if (isMaster && event != null) {
             log.debug("Notifying peers of a device removed topology event for deviceId: {}",
                       deviceId);
             notifyPeers(new InternalDeviceRemovedEvent(deviceId, timestamp));
         }
+
+        // Relinquish mastership if acquired to remove the device.
         if (relinquishAtEnd) {
             log.debug("Relinquishing temporary role acquired for {}", deviceId);
             mastershipService.relinquishMastership(deviceId);
@@ -1058,8 +1072,7 @@ public class GossipDeviceStore
         return event;
     }
 
-    private DeviceEvent removeDeviceInternal(DeviceId deviceId,
-                                             Timestamp timestamp) {
+    private DeviceEvent removeDeviceInternal(DeviceId deviceId, Timestamp timestamp) {
 
         Map<ProviderId, DeviceDescriptions> descs = getOrCreateDeviceDescriptionsMap(deviceId);
         synchronized (descs) {
@@ -1071,6 +1084,12 @@ public class GossipDeviceStore
             }
 
             Timestamp lastTimestamp = primDescs.getLatestTimestamp();
+
+            // If no timestamp is set, default the timestamp to the last timestamp for the device.
+            if (timestamp == null) {
+                timestamp = lastTimestamp;
+            }
+
             if (timestamp.compareTo(lastTimestamp) <= 0) {
                 // outdated event ignore
                 return null;
@@ -1101,7 +1120,7 @@ public class GossipDeviceStore
     private boolean isDeviceRemoved(DeviceId deviceId, Timestamp timestampToCheck) {
         Timestamp removalTimestamp = removalRequest.get(deviceId);
         if (removalTimestamp != null &&
-                removalTimestamp.compareTo(timestampToCheck) >= 0) {
+                removalTimestamp.compareTo(timestampToCheck) > 0) {
             // removalRequest is more recent
             return true;
         }
@@ -1565,7 +1584,8 @@ public class GossipDeviceStore
 
     private void handleRemoveRequest(DeviceId did) {
         try {
-            removeDevice(did);
+            DeviceEvent event = removeDevice(did);
+            notifyDelegateIfNotNull(event);
         } catch (Exception e) {
             log.warn("Exception thrown handling device remove", e);
         }

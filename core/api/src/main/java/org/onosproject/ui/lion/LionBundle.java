@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,6 +82,29 @@ public final class LionBundle {
      */
     public String getValue(String key) {
         return mapped.get(key);
+    }
+
+    /**
+     * Returns the localized value for the given key, or, if no such mapping
+     * exists, returns the key wrapped in '%' characters.
+     *
+     * @param key the key
+     * @return the localized value (or a wrapped key placeholder)
+     */
+    public String getSafe(String key) {
+        String value = mapped.get(key);
+        return value == null ? "%" + key + "%" : value;
+    }
+
+    /**
+     * Converts the given enum constant to lowercase and then uses that as the
+     * key to invoke {@link #getSafe(String)}.
+     *
+     * @param enumConst the constant to use as the key
+     * @return the localized value (or a wrapped key placeholder)
+     */
+    public String getSafe(Enum<?> enumConst) {
+        return getSafe(enumConst.name().toLowerCase());
     }
 
     /**

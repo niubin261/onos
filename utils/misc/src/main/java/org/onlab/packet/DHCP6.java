@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,24 @@
 
 package org.onlab.packet;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import org.onlab.packet.dhcp.Dhcp6ClientIdOption;
+import org.onlab.packet.dhcp.Dhcp6IaAddressOption;
+import org.onlab.packet.dhcp.Dhcp6IaNaOption;
+import org.onlab.packet.dhcp.Dhcp6IaTaOption;
+import org.onlab.packet.dhcp.Dhcp6IaPdOption;
 import org.onlab.packet.dhcp.Dhcp6Option;
+import org.onlab.packet.dhcp.Dhcp6RelayOption;
+import org.onlab.packet.dhcp.Dhcp6InterfaceIdOption;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -31,6 +41,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * Base on RFC-3315.
  */
 public class DHCP6 extends BasePacket {
+    private static final int UNSIGNED_SHORT_MASK = 0xffff;
     // size of different field of option
     private static final int OPT_CODE_SIZE = 2;
     private static final int OPT_LEN_SIZE = 2;
@@ -47,7 +58,7 @@ public class DHCP6 extends BasePacket {
     private static final int TRANSACTION_ID_MASK = 0x00ffffff;
 
     // Relay message types
-    private static final Set<Byte> RELAY_MSG_TYPES =
+    public static final Set<Byte> RELAY_MSG_TYPES =
             ImmutableSet.of(MsgType.RELAY_FORW.value,
                             MsgType.RELAY_REPL.value);
 
@@ -79,7 +90,8 @@ public class DHCP6 extends BasePacket {
         RELAY_MSG((short) 9), AUTH((short) 11), UNICAST((short) 12),
         STATUS_CODE((short) 13), RAPID_COMMIT((short) 14), USER_CLASS((short) 15),
         VENDOR_CLASS((short) 16), VENDOR_OPTS((short) 17), INTERFACE_ID((short) 18),
-        RECONF_MSG((short) 19), RECONF_ACCEPT((short) 20);
+        RECONF_MSG((short) 19), RECONF_ACCEPT((short) 20), IA_PD((short) 25), IAPREFIX((short) 26),
+        SUBSCRIBER_ID((short) 38);
 
         protected short value;
         OptionCode(final short value) {
@@ -89,6 +101,17 @@ public class DHCP6 extends BasePacket {
             return this.value;
         }
     }
+
+    private static final Map<Short, Deserializer<Dhcp6Option>> OPT_DESERIALIZERS =
+            ImmutableMap.<Short, Deserializer<Dhcp6Option>>builder()
+                            .put(OptionCode.IA_NA.value, Dhcp6IaNaOption.deserializer())
+                            .put(OptionCode.IA_TA.value, Dhcp6IaTaOption.deserializer())
+                            .put(OptionCode.IAADDR.value, Dhcp6IaAddressOption.deserializer())
+                            .put(OptionCode.RELAY_MSG.value, Dhcp6RelayOption.deserializer())
+                            .put(OptionCode.CLIENTID.value, Dhcp6ClientIdOption.deserializer())
+                            .put(OptionCode.IA_PD.value, Dhcp6IaPdOption.deserializer())
+                            .put(OptionCode.INTERFACE_ID.value, Dhcp6InterfaceIdOption.deserializer())
+                    .build();
 
     // general field
     private byte msgType; // 1 byte
@@ -138,9 +161,7 @@ public class DHCP6 extends BasePacket {
 
         // serialize options
         options.forEach(option -> {
-            bb.putShort(option.getCode());
-            bb.putShort(option.getLength());
-            bb.put(option.getData());
+            bb.put(option.serialize());
         });
 
         return bb.array();
@@ -170,7 +191,7 @@ public class DHCP6 extends BasePacket {
             }
 
             // peek message type
-            dhcp6.msgType = bb.array()[0];
+            dhcp6.msgType = bb.array()[offset];
             if (RELAY_MSG_TYPES.contains(dhcp6.msgType)) {
                 bb.get(); // drop message type
                 dhcp6.hopCount = bb.get();
@@ -186,26 +207,25 @@ public class DHCP6 extends BasePacket {
             }
 
             dhcp6.options = Lists.newArrayList();
-            while (bb.remaining() >= OPT_CODE_SIZE) {
-                Dhcp6Option option = new Dhcp6Option();
-                short code = bb.getShort();
-                if (bb.remaining() < OPT_LEN_SIZE) {
+            while (bb.remaining() >= Dhcp6Option.DEFAULT_LEN) {
+                // create temporary byte buffer for reading code and length
+                ByteBuffer optByteBuffer =
+                        ByteBuffer.wrap(data, bb.position(), bb.limit() - bb.position());
+                short code = optByteBuffer.getShort();
+                int optionLen = UNSIGNED_SHORT_MASK & optByteBuffer.getShort();
+                if (optByteBuffer.remaining() < optionLen) {
                     throw new DeserializationException(
                             "Buffer underflow while reading DHCPv6 option");
                 }
-
-                short optionLen = bb.getShort();
-                if (bb.remaining() < optionLen) {
-                    throw new DeserializationException(
-                            "Buffer underflow while reading DHCPv6 option");
-                }
-
-                byte[] optionData = new byte[optionLen];
+                Dhcp6Option option;
+                byte[] optionData = new byte[Dhcp6Option.DEFAULT_LEN + optionLen];
                 bb.get(optionData);
-
-                option.setCode(code);
-                option.setLength(optionLen);
-                option.setData(optionData);
+                if (OPT_DESERIALIZERS.containsKey(code)) {
+                    option = OPT_DESERIALIZERS.get(code).deserialize(optionData, 0, optionData.length);
+                } else {
+                    option = Dhcp6Option.deserializer().deserialize(optionData, 0, optionData.length);
+                }
+                option.setParent(dhcp6);
                 dhcp6.options.add(option);
             }
 
@@ -268,12 +288,30 @@ public class DHCP6 extends BasePacket {
     }
 
     /**
+     * Gets IPv6 link address.
+     *
+     * @return the IPv6 link address
+     */
+    public Ip6Address getIp6LinkAddress() {
+        return linkAddress == null ? null : Ip6Address.valueOf(linkAddress);
+    }
+
+    /**
      * Gets the peer address of this DHCPv6 relay message.
      *
      * @return the link address
      */
     public byte[] getPeerAddress() {
         return peerAddress;
+    }
+
+    /**
+     * Gets IPv6 peer address.
+     *
+     * @return the IPv6 peer address
+     */
+    public Ip6Address getIp6PeerAddress() {
+        return peerAddress == null ? null : Ip6Address.valueOf(peerAddress);
     }
 
     /**
@@ -328,5 +366,25 @@ public class DHCP6 extends BasePacket {
      */
     public void setPeerAddress(byte[] peerAddress) {
         this.peerAddress = peerAddress;
+    }
+
+    @Override
+    public String toString() {
+        if (RELAY_MSG_TYPES.contains(msgType)) {
+            // relay message
+            return toStringHelper(getClass())
+                    .add("msgType", msgType)
+                    .add("hopCount", hopCount)
+                    .add("linkAddress", Ip6Address.valueOf(linkAddress))
+                    .add("peerAddress", Ip6Address.valueOf(peerAddress))
+                    .add("options", options)
+                    .toString();
+        } else {
+            return toStringHelper(getClass())
+                    .add("msgType", msgType)
+                    .add("transactionId", transactionId)
+                    .add("options", options)
+                    .toString();
+        }
     }
 }

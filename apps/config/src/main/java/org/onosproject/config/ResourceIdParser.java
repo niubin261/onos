@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,17 +26,43 @@ import org.onosproject.yang.model.ListKey;
 import org.onosproject.yang.model.NodeKey;
 import org.onosproject.yang.model.ResourceId;
 
+import com.google.common.annotations.Beta;
+
+// FIXME add non-trivial examples
 /**
  * Utilities to work on the ResourceId.
+ * <p>
+ * Examples:
+ * <dl>
+ *  <dt>root node</dt>
+ *   <dd>root</dd>
+ * </dl>
+ *
  */
 //FIXME add javadocs
+@Beta
 public final class ResourceIdParser {
 
+    /**
+     * root node name.
+     */
     public static final String ROOT = "root";
+
+    /**
+     * Separator between SchemaId components and value part.
+     */
     public static final String NM_SEP = "#";
+    // TODO not used in #parseResId(ResourceId)??
     public static final String VAL_SEP = "@";
+    /**
+     * Separator between ListKey schemaId and keyLeafs.
+     */
     public static final String KEY_SEP = "$";
+    /**
+     * Separator between {@code NodeKey}s (~=tree nodes).
+     */
     public static final String EL_SEP = "|";
+
     public static final String VAL_CHK = "\\@";
     public static final String KEY_CHK = "\\$";
     public static final String NM_CHK = "\\#";
@@ -106,6 +132,7 @@ public final class ResourceIdParser {
     }
 
     public static String appendNodeKey(String path, NodeKey key) {
+        // FIXME this is not handling root path exception
         return (path + EL_SEP + key.schemaId().name() + NM_SEP + key.schemaId().namespace());
     }
 
@@ -149,6 +176,22 @@ public final class ResourceIdParser {
         return bldr.toString();
     }
 
+    /**
+     * Gets String representation of ResourceId.
+     * <p>
+     * <pre>
+     *   ResourceId := 'root' ('|' element)*
+     *   element := LeafListKey | ListKey | NodeKey
+     *   SchemaId := [string SchemaId#name] '#' [string SchemaId#namespace]
+     *   LeafListKey := SchemaId '#' [string representation of LeafListKey#value]
+     *   ListKey := SchemaId (KeyLeaf)*
+     *   KeyLeaf := '$' SchemaId '#' [string representation of KeyLeaf#leafValue]
+     *   NodeKey := SchemaId
+     * </pre>
+     *
+     * @param path to convert
+     * @return String representation
+     */
     public static String parseResId(ResourceId path) {
         StringBuilder bldr = new StringBuilder();
         bldr.append(ROOT);
@@ -160,7 +203,8 @@ public final class ResourceIdParser {
         while (itr.hasNext()) {
             nodeKeyList.add(itr.next());
         }
-        if (nodeKeyList.get(0).schemaId().name().compareTo("/") == 0) {
+        // exception for dealing with root
+        if (nodeKeyList.get(0).schemaId().name().equals("/")) {
             nodeKeyList.remove(0);
         }
         for (NodeKey key : nodeKeyList) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -192,6 +192,10 @@ public class DefaultVirtualMeterProvider extends AbstractVirtualProvider
                 case METER_ADD_REQ:
                     break;
                 case METER_REM_REQ:
+                    break;
+                case METER_ADDED:
+                    break;
+                case METER_REMOVED:
                     break;
                 default:
                     log.warn("Unknown meter event {}", event.type());

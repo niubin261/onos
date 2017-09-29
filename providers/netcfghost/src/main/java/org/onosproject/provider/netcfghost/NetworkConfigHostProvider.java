@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-present Open Networking Laboratory
+ * Copyright 2015-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -172,15 +172,19 @@ public class NetworkConfigHostProvider extends AbstractProvider implements HostP
             HostId hostId = (HostId) event.subject();
             MacAddress mac = hostId.mac();
             VlanId vlan = hostId.vlanId();
-            BasicHostConfig hostConfig =
-                    networkConfigRegistry.getConfig(hostId, BasicHostConfig.class);
+            BasicHostConfig hostConfig = networkConfigRegistry.getConfig(hostId, BasicHostConfig.class);
             Set<IpAddress> ipAddresses = null;
             Set<HostLocation> locations = null;
 
             // Note: There will be no config presented in the CONFIG_REMOVE case
             if (hostConfig != null) {
                 ipAddresses = hostConfig.ipAddresses();
-                locations = hostConfig.locations().stream()
+                locations = hostConfig.locations();
+                if (locations == null || locations.size() < 1) {
+                    log.debug("Ignore network config event without host locations {}", event);
+                    return;
+                }
+                locations = locations.stream()
                         .map(hostLocation -> new HostLocation(hostLocation, System.currentTimeMillis()))
                         .collect(Collectors.toSet());
             }

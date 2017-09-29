@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-present Open Networking Laboratory
+ * Copyright 2015-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.onosproject.net.intent.IntentService;
 import org.onosproject.net.intent.IntentState;
 import org.onosproject.net.intent.HostToHostIntent;
 import org.onosproject.net.intent.SinglePointToMultiPointIntent;
+import org.onosproject.net.intent.MultiPointToSinglePointIntent;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -98,6 +99,8 @@ public final class IntentCodec extends JsonCodec<Intent> {
             return context.codec(HostToHostIntent.class).decode(json, context);
         } else if (type.equals(SinglePointToMultiPointIntent.class.getSimpleName())) {
             return context.codec(SinglePointToMultiPointIntent.class).decode(json, context);
+        } else if (type.equals(MultiPointToSinglePointIntent.class.getSimpleName())) {
+            return context.codec(MultiPointToSinglePointIntent.class).decode(json, context);
         }
 
         throw new IllegalArgumentException("Intent type "

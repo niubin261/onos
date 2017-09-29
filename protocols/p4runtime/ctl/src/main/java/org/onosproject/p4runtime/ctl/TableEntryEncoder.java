@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,13 @@
 package org.onosproject.p4runtime.ctl;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
 import org.onlab.util.ImmutableByteSequence;
 import org.onosproject.net.pi.model.PiPipeconf;
 import org.onosproject.net.pi.runtime.PiAction;
+import org.onosproject.net.pi.runtime.PiActionGroupId;
+import org.onosproject.net.pi.runtime.PiActionGroupMemberId;
 import org.onosproject.net.pi.runtime.PiActionId;
 import org.onosproject.net.pi.runtime.PiActionParam;
 import org.onosproject.net.pi.runtime.PiActionParamId;
@@ -28,6 +31,7 @@ import org.onosproject.net.pi.runtime.PiExactFieldMatch;
 import org.onosproject.net.pi.runtime.PiFieldMatch;
 import org.onosproject.net.pi.runtime.PiHeaderFieldId;
 import org.onosproject.net.pi.runtime.PiLpmFieldMatch;
+import org.onosproject.net.pi.runtime.PiMatchKey;
 import org.onosproject.net.pi.runtime.PiRangeFieldMatch;
 import org.onosproject.net.pi.runtime.PiTableAction;
 import org.onosproject.net.pi.runtime.PiTableEntry;
@@ -35,25 +39,26 @@ import org.onosproject.net.pi.runtime.PiTableId;
 import org.onosproject.net.pi.runtime.PiTernaryFieldMatch;
 import org.onosproject.net.pi.runtime.PiValidFieldMatch;
 import org.slf4j.Logger;
-import p4.P4RuntimeOuterClass.Action;
 import p4.P4RuntimeOuterClass.FieldMatch;
 import p4.P4RuntimeOuterClass.TableAction;
 import p4.P4RuntimeOuterClass.TableEntry;
+import p4.P4RuntimeOuterClass.Action;
 import p4.config.P4InfoOuterClass;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 import static java.lang.String.format;
 import static org.onlab.util.ImmutableByteSequence.copyFrom;
+import static org.onosproject.p4runtime.ctl.P4RuntimeUtils.assertPrefixLen;
+import static org.onosproject.p4runtime.ctl.P4RuntimeUtils.assertSize;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
- * Encoder of table entries, from ONOS Pi* format, to P4Runtime protobuf messages, and vice versa.
+ * Encoder/Decoder of table entries, from ONOS Pi* format, to P4Runtime protobuf messages, and vice versa.
  */
 final class TableEntryEncoder {
-
-
     private static final Logger log = getLogger(TableEntryEncoder.class);
 
     private static final String HEADER_PREFIX = "hdr.";
@@ -69,8 +74,8 @@ final class TableEntryEncoder {
     }
 
     /**
-     * Returns a collection of P4Runtime table entry protobuf messages, encoded from the given collection of PI
-     * table entries for the given pipeconf. If a PI table entry cannot be encoded, it is skipped, hence the returned
+     * Returns a collection of P4Runtime table entry protobuf messages, encoded from the given collection of PI table
+     * entries for the given pipeconf. If a PI table entry cannot be encoded, it is skipped, hence the returned
      * collection might have different size than the input one.
      * <p>
      * Please check the log for an explanation of any error that might have occurred.
@@ -99,6 +104,26 @@ final class TableEntryEncoder {
         }
 
         return tableEntryMsgListBuilder.build();
+    }
+
+    /**
+     * Same as {@link #encode(Collection, PiPipeconf)} but encodes only one entry.
+     *
+     * @param piTableEntry table entry
+     * @param pipeconf     pipeconf
+     * @return encoded table entry message
+     * @throws EncodeException                 if entry cannot be encoded
+     * @throws P4InfoBrowser.NotFoundException if the required information cannot be find in the pipeconf's P4info
+     */
+    static TableEntry encode(PiTableEntry piTableEntry, PiPipeconf pipeconf)
+            throws EncodeException, P4InfoBrowser.NotFoundException {
+
+        P4InfoBrowser browser = PipeconfHelper.getP4InfoBrowser(pipeconf);
+        if (browser == null) {
+            throw new EncodeException(format("Unable to get a P4Info browser for pipeconf %s", pipeconf.id()));
+        }
+
+        return encodePiTableEntry(piTableEntry, browser);
     }
 
     /**
@@ -134,18 +159,70 @@ final class TableEntryEncoder {
         return piTableEntryListBuilder.build();
     }
 
+    /**
+     * Same as {@link #decode(Collection, PiPipeconf)} but decodes only one entry.
+     *
+     * @param tableEntryMsg table entry message
+     * @param pipeconf      pipeconf
+     * @return decoded PI table entry
+     * @throws EncodeException                 if message cannot be decoded
+     * @throws P4InfoBrowser.NotFoundException if the required information cannot be find in the pipeconf's P4info
+     */
+    static PiTableEntry decode(TableEntry tableEntryMsg, PiPipeconf pipeconf)
+            throws EncodeException, P4InfoBrowser.NotFoundException {
+
+        P4InfoBrowser browser = PipeconfHelper.getP4InfoBrowser(pipeconf);
+        if (browser == null) {
+            throw new EncodeException(format("Unable to get a P4Info browser for pipeconf %s", pipeconf.id()));
+        }
+        return decodeTableEntryMsg(tableEntryMsg, browser);
+    }
+
+    /**
+     * Returns a table entry protobuf message, encoded from the given table id and match key, for the given pipeconf.
+     * The returned table entry message can be only used to reference an existing entry, i.e. a read operation, and not
+     * a write one wince it misses other fields (action, priority, etc.).
+     *
+     * @param tableId  table identifier
+     * @param matchKey match key
+     * @param pipeconf pipeconf
+     * @return table entry message
+     * @throws EncodeException                 if message cannot be encoded
+     * @throws P4InfoBrowser.NotFoundException if the required information cannot be find in the pipeconf's P4info
+     */
+    static TableEntry encode(PiTableId tableId, PiMatchKey matchKey, PiPipeconf pipeconf)
+            throws EncodeException, P4InfoBrowser.NotFoundException {
+
+        P4InfoBrowser browser = PipeconfHelper.getP4InfoBrowser(pipeconf);
+        TableEntry.Builder tableEntryMsgBuilder = TableEntry.newBuilder();
+
+        //FIXME this throws some kind of NPE
+        P4InfoOuterClass.Table tableInfo = browser.tables().getByName(tableId.id());
+
+        // Table id.
+        tableEntryMsgBuilder.setTableId(tableInfo.getPreamble().getId());
+
+        // Field matches.
+        for (PiFieldMatch piFieldMatch : matchKey.fieldMatches()) {
+            tableEntryMsgBuilder.addMatch(encodePiFieldMatch(piFieldMatch, tableInfo, browser));
+        }
+
+        return tableEntryMsgBuilder.build();
+    }
+
     private static TableEntry encodePiTableEntry(PiTableEntry piTableEntry, P4InfoBrowser browser)
             throws P4InfoBrowser.NotFoundException, EncodeException {
 
         TableEntry.Builder tableEntryMsgBuilder = TableEntry.newBuilder();
 
+        //FIXME this throws some kind of NPE
         P4InfoOuterClass.Table tableInfo = browser.tables().getByName(piTableEntry.table().id());
 
         // Table id.
         tableEntryMsgBuilder.setTableId(tableInfo.getPreamble().getId());
 
         // Priority.
-        // FIXME: check on P4Runtime if/what is the defaulr priority.
+        // FIXME: check on P4Runtime if/what is the default priority.
         int priority = piTableEntry.priority().orElse(0);
         tableEntryMsgBuilder.setPriority(priority);
 
@@ -161,7 +238,7 @@ final class TableEntryEncoder {
         tableEntryMsgBuilder.setAction(encodePiTableAction(piTableEntry.action(), browser));
 
         // Field matches.
-        for (PiFieldMatch piFieldMatch : piTableEntry.fieldMatches()) {
+        for (PiFieldMatch piFieldMatch : piTableEntry.matchKey().fieldMatches()) {
             tableEntryMsgBuilder.addMatch(encodePiFieldMatch(piFieldMatch, tableInfo, browser));
         }
 
@@ -190,10 +267,8 @@ final class TableEntryEncoder {
         // Timeout.
         // FIXME: how to decode table entry messages with timeout, given that the timeout value is lost after encoding?
 
-        // Field matches.
-        for (FieldMatch fieldMatchMsg : tableEntryMsg.getMatchList()) {
-            piTableEntryBuilder.withFieldMatch(decodeFieldMatchMsg(fieldMatchMsg, tableInfo, browser));
-        }
+        // Match key for field matches.
+        piTableEntryBuilder.withMatchKey(decodeFieldMatchMsgs(tableEntryMsg.getMatchList(), tableInfo, browser));
 
         return piTableEntryBuilder.build();
     }
@@ -276,6 +351,33 @@ final class TableEntryEncoder {
         }
     }
 
+    /**
+     * Returns a PI match key, decoded from the given table entry protobuf message, for the given pipeconf.
+     *
+     * @param tableEntryMsg table entry message
+     * @param pipeconf      pipeconf
+     * @return PI match key
+     * @throws EncodeException                 if message cannot be decoded
+     * @throws P4InfoBrowser.NotFoundException if the required information cannot be find in the pipeconf's P4info
+     */
+    static PiMatchKey decodeMatchKey(TableEntry tableEntryMsg, PiPipeconf pipeconf)
+            throws P4InfoBrowser.NotFoundException, EncodeException {
+        P4InfoBrowser browser = PipeconfHelper.getP4InfoBrowser(pipeconf);
+        P4InfoOuterClass.Table tableInfo = browser.tables().getById(tableEntryMsg.getTableId());
+        return decodeFieldMatchMsgs(tableEntryMsg.getMatchList(), tableInfo, browser);
+    }
+
+    private static PiMatchKey decodeFieldMatchMsgs(Collection<FieldMatch> fieldMatchs, P4InfoOuterClass.Table tableInfo,
+                                                   P4InfoBrowser browser)
+            throws P4InfoBrowser.NotFoundException, EncodeException {
+        // Match key for field matches.
+        PiMatchKey.Builder piMatchKeyBuilder = PiMatchKey.builder();
+        for (FieldMatch fieldMatchMsg : fieldMatchs) {
+            piMatchKeyBuilder.addFieldMatch(decodeFieldMatchMsg(fieldMatchMsg, tableInfo, browser));
+        }
+        return piMatchKeyBuilder.build();
+    }
+
     private static PiFieldMatch decodeFieldMatchMsg(FieldMatch fieldMatchMsg, P4InfoOuterClass.Table tableInfo,
                                                     P4InfoBrowser browser)
             throws P4InfoBrowser.NotFoundException, EncodeException {
@@ -324,7 +426,7 @@ final class TableEntryEncoder {
         }
     }
 
-    private static TableAction encodePiTableAction(PiTableAction piTableAction, P4InfoBrowser browser)
+    static TableAction encodePiTableAction(PiTableAction piTableAction, P4InfoBrowser browser)
             throws P4InfoBrowser.NotFoundException, EncodeException {
 
         TableAction.Builder tableActionMsgBuilder = TableAction.newBuilder();
@@ -332,24 +434,17 @@ final class TableEntryEncoder {
         switch (piTableAction.type()) {
             case ACTION:
                 PiAction piAction = (PiAction) piTableAction;
-                int actionId = browser.actions().getByName(piAction.id().name()).getPreamble().getId();
-
-                Action.Builder actionMsgBuilder = Action.newBuilder().setActionId(actionId);
-
-                for (PiActionParam p : piAction.parameters()) {
-                    P4InfoOuterClass.Action.Param paramInfo = browser.actionParams(actionId).getByName(p.id().name());
-                    ByteString paramValue = ByteString.copyFrom(p.value().asReadOnlyBuffer());
-                    assertSize(format("param '%s' of action '%s'", p.id(), piAction.id()),
-                               paramValue, paramInfo.getBitwidth());
-                    actionMsgBuilder.addParams(Action.Param.newBuilder()
-                                                       .setParamId(paramInfo.getId())
-                                                       .setValue(paramValue)
-                                                       .build());
-                }
-
-                tableActionMsgBuilder.setAction(actionMsgBuilder.build());
+                Action theAction = encodePiAction(piAction, browser);
+                tableActionMsgBuilder.setAction(theAction);
                 break;
-
+            case ACTION_GROUP_ID:
+                PiActionGroupId actionGroupId = (PiActionGroupId) piTableAction;
+                tableActionMsgBuilder.setActionProfileGroupId(actionGroupId.id());
+                break;
+            case GROUP_MEMBER_ID:
+                PiActionGroupMemberId actionGroupMemberId = (PiActionGroupMemberId) piTableAction;
+                tableActionMsgBuilder.setActionProfileMemberId(actionGroupMemberId.id());
+                break;
             default:
                 throw new EncodeException(
                         format("Building of table action type %s not implemented", piTableAction.type()));
@@ -358,50 +453,56 @@ final class TableEntryEncoder {
         return tableActionMsgBuilder.build();
     }
 
-    private static PiTableAction decodeTableActionMsg(TableAction tableActionMsg, P4InfoBrowser browser)
+    static PiTableAction decodeTableActionMsg(TableAction tableActionMsg, P4InfoBrowser browser)
             throws P4InfoBrowser.NotFoundException, EncodeException {
-
         TableAction.TypeCase typeCase = tableActionMsg.getTypeCase();
-
         switch (typeCase) {
             case ACTION:
-                PiAction.Builder piActionBuilder = PiAction.builder();
                 Action actionMsg = tableActionMsg.getAction();
-                // Action ID.
-                int actionId = actionMsg.getActionId();
-                String actionName = browser.actions().getById(actionId).getPreamble().getName();
-                piActionBuilder.withId(PiActionId.of(actionName));
-                // Params.
-                for (Action.Param paramMsg : actionMsg.getParamsList()) {
-                    String paramName = browser.actionParams(actionId).getById(paramMsg.getParamId()).getName();
-                    ImmutableByteSequence paramValue = copyFrom(paramMsg.getValue().asReadOnlyByteBuffer());
-                    piActionBuilder.withParameter(new PiActionParam(PiActionParamId.of(paramName), paramValue));
-                }
-                return piActionBuilder.build();
-
+                return decodeActionMsg(actionMsg, browser);
             default:
                 throw new EncodeException(
                         format("Decoding of table action type %s not implemented", typeCase.name()));
         }
     }
 
-    private static void assertSize(String entityDescr, ByteString value, int bitWidth)
-            throws EncodeException {
+    static Action encodePiAction(PiAction piAction, P4InfoBrowser browser)
+            throws P4InfoBrowser.NotFoundException, EncodeException {
 
-        int byteWidth = (int) Math.ceil((float) bitWidth / 8);
-        if (value.size() != byteWidth) {
-            throw new EncodeException(format("Wrong size for %s, expected %d bytes, but found %d",
-                                             entityDescr, byteWidth, value.size()));
+        int actionId = browser.actions().getByName(piAction.id().name()).getPreamble().getId();
+
+        Action.Builder actionMsgBuilder =
+                Action.newBuilder().setActionId(actionId);
+
+        for (PiActionParam p : piAction.parameters()) {
+            P4InfoOuterClass.Action.Param paramInfo = browser.actionParams(actionId).getByName(p.id().name());
+            ByteString paramValue = ByteString.copyFrom(p.value().asReadOnlyBuffer());
+            assertSize(format("param '%s' of action '%s'", p.id(), piAction.id()),
+                       paramValue, paramInfo.getBitwidth());
+            actionMsgBuilder.addParams(Action.Param.newBuilder()
+                                               .setParamId(paramInfo.getId())
+                                               .setValue(paramValue)
+                                               .build());
         }
+
+        return actionMsgBuilder.build();
     }
 
-    private static void assertPrefixLen(String entityDescr, int prefixLength, int bitWidth)
-            throws EncodeException {
+    static PiAction decodeActionMsg(Action action, P4InfoBrowser browser)
+            throws P4InfoBrowser.NotFoundException {
+        P4InfoBrowser.EntityBrowser<P4InfoOuterClass.Action.Param> paramInfo =
+                browser.actionParams(action.getActionId());
+        String actionName = browser.actions()
+                .getById(action.getActionId())
+                .getPreamble().getName();
+        PiActionId id = PiActionId.of(actionName);
+        List<PiActionParam> params = Lists.newArrayList();
 
-        if (prefixLength > bitWidth) {
-            throw new EncodeException(format(
-                    "wrong prefix length for %s, field size is %d bits, but found one is %d",
-                    entityDescr, bitWidth, prefixLength));
+        for (Action.Param p : action.getParamsList()) {
+            String paramName = paramInfo.getById(p.getParamId()).getName();
+            ImmutableByteSequence value = ImmutableByteSequence.copyFrom(p.getValue().toByteArray());
+            params.add(new PiActionParam(PiActionParamId.of(paramName), value));
         }
+        return PiAction.builder().withId(id).withParameters(params).build();
     }
 }

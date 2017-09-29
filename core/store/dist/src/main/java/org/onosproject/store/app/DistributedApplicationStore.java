@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -364,6 +364,7 @@ public class DistributedApplicationStore extends ApplicationArchive
                     (k, v) -> new InternalApplicationHolder(
                             v.app(), ACTIVATED, v.permissions()));
             appActivationTopic.publish(vAppHolder.value().app());
+            appActivationTopic.publish(null); // FIXME: Once ONOS-6977 is fixed
         }
     }
 
@@ -436,13 +437,20 @@ public class DistributedApplicationStore extends ApplicationArchive
         }
     }
 
+    @Override
+    public InputStream getApplicationArchive(ApplicationId appId) {
+        return getApplicationInputStream(appId.name());
+    }
+
     private class AppActivator implements Consumer<Application> {
         @Override
         public void accept(Application app) {
-            String appName = app.id().name();
-            installAppIfNeeded(app);
-            setActive(appName);
-            notifyDelegate(new ApplicationEvent(APP_ACTIVATED, app));
+            if (app != null) { // FIXME: Once ONOS-6977 is fixed
+                String appName = app.id().name();
+                installAppIfNeeded(app);
+                setActive(appName);
+                notifyDelegate(new ApplicationEvent(APP_ACTIVATED, app));
+            }
         }
     }
 
@@ -546,7 +554,7 @@ public class DistributedApplicationStore extends ApplicationArchive
                             log.warn("Unable to fetch bits for application {} from node {}",
                                      app.id().name(), node.id());
                         }
-                    }, executor);
+                    }, messageHandlingExecutor);
         }
 
         try {
@@ -563,20 +571,10 @@ public class DistributedApplicationStore extends ApplicationArchive
      */
     private Application registerApp(ApplicationDescription appDesc) {
         ApplicationId appId = idStore.registerApplication(appDesc.name());
-        return new DefaultApplication(appId,
-                                      appDesc.version(),
-                                      appDesc.title(),
-                                      appDesc.description(),
-                                      appDesc.origin(),
-                                      appDesc.category(),
-                                      appDesc.url(),
-                                      appDesc.readme(),
-                                      appDesc.icon(),
-                                      appDesc.role(),
-                                      appDesc.permissions(),
-                                      appDesc.featuresRepo(),
-                                      appDesc.features(),
-                                      appDesc.requiredApps());
+        return DefaultApplication
+                .builder(appDesc)
+                .withAppId(appId)
+                .build();
     }
 
     /**

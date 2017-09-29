@@ -3,6 +3,7 @@
     //apps/optical-model:onos-apps-optical-model
     //apps/restconf/api:onos-apps-restconf-api
     //apps/routing-api:onos-apps-routing-api
+    //apps/route-service/api:onos-apps-route-service-api
     //cli:onos-cli
     //core/api:onos-api
     //core/common:onos-core-common
@@ -11,7 +12,6 @@
     //core/store/persistence:onos-core-persistence
     //core/store/serializers:onos-core-serializers
     //incubator/api:onos-incubator-api
-    //incubator/core:onos-incubator-core
     //incubator/net:onos-incubator-net
     //incubator/rpc:onos-incubator-rpc
     //incubator/store:onos-incubator-store
@@ -29,7 +29,7 @@
     //protocols/ovsdb/api:onos-protocols-ovsdb-api
     //protocols/ovsdb/ctl:onos-protocols-ovsdb-ctl
     //protocols/ovsdb/rfc:onos-protocols-ovsdb-rfc
-    //protocols/pcep/api:onos-protocols-pcep-api
+    //protocols/pcep/server/api:onos-protocols-pcep-server-api
     //protocols/pcep/pcepio:onos-protocols-pcep-pcepio
     //protocols/rest/api:onos-protocols-rest-api
     //protocols/restconf/client/api:onos-protocols-restconf-client-api

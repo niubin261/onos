@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-present Open Networking Laboratory
+ * Copyright 2015-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,9 +27,8 @@ import org.onlab.packet.MPLS;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.VlanId;
 import org.onlab.packet.ndp.NeighborSolicitation;
-import org.onosproject.incubator.net.neighbour.NeighbourMessageContext;
-import org.onosproject.incubator.net.neighbour.NeighbourMessageType;
-import org.onosproject.incubator.net.routing.ResolvedRoute;
+import org.onosproject.net.neighbour.NeighbourMessageContext;
+import org.onosproject.net.neighbour.NeighbourMessageType;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
@@ -93,7 +92,7 @@ public class IcmpHandler extends SegmentRoutingNeighbourHandler {
                                                               treatment, ByteBuffer.wrap(payload.serialize()));
             srManager.packetService.emit(packet);
         } else {
-            log.debug("Send a MPLS packet as a ICMP response");
+            log.trace("Send a MPLS packet as a ICMP response");
             TrafficTreatment treatment = DefaultTrafficTreatment.builder()
                     .setOutput(outport.port())
                     .build();
@@ -165,12 +164,15 @@ public class IcmpHandler extends SegmentRoutingNeighbourHandler {
         //       The source might be an indirectly attached host (e.g. behind a router)
         //       Lookup the route store for the nexthop instead.
         if (destRouterAddress == null) {
-            Optional<ResolvedRoute> nexthop = srManager.routeService.longestPrefixLookup(destIpAddress);
-            if (nexthop.isPresent()) {
+            Optional<DeviceId> deviceId = srManager.routeService
+                    .longestPrefixLookup(destIpAddress).map(srManager::nextHopLocations)
+                    .flatMap(locations -> locations.stream().findFirst())
+                    .map(ConnectPoint::deviceId);
+            if (deviceId.isPresent()) {
                 try {
-                    destRouterAddress = config.getRouterIpv4(nexthop.get().location().deviceId());
+                    destRouterAddress = config.getRouterIpv4(deviceId.get());
                 } catch (DeviceConfigNotFoundException e) {
-                    log.warn("Device config not found. Abort ICMP processing");
+                    log.warn("Device config for {} not found. Abort ICMP processing", deviceId);
                     return;
                 }
             }
@@ -240,12 +242,15 @@ public class IcmpHandler extends SegmentRoutingNeighbourHandler {
         //       The source might be an indirect host behind a router.
         //       Lookup the route store for the nexthop instead.
         if (destRouterAddress == null) {
-            Optional<ResolvedRoute> nexthop = srManager.routeService.longestPrefixLookup(destIpAddress);
-            if (nexthop.isPresent()) {
+            Optional<DeviceId> deviceId = srManager.routeService
+                    .longestPrefixLookup(destIpAddress).map(srManager::nextHopLocations)
+                    .flatMap(locations -> locations.stream().findFirst())
+                    .map(ConnectPoint::deviceId);
+            if (deviceId.isPresent()) {
                 try {
-                    destRouterAddress = config.getRouterIpv6(nexthop.get().location().deviceId());
+                    destRouterAddress = config.getRouterIpv6(deviceId.get());
                 } catch (DeviceConfigNotFoundException e) {
-                    log.warn("Device config not found. Abort ICMPv6 processing");
+                    log.warn("Device config for {} not found. Abort ICMPv6 processing", deviceId);
                     return;
                 }
             }

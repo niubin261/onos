@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -342,7 +342,7 @@ public final class PiCriterion implements Criterion {
          *
          * @return PiCriterion
          */
-        public Criterion build() {
+        public PiCriterion build() {
             ImmutableMap<PiHeaderFieldId, PiFieldMatch> fieldMatchMap = fieldMatchMapBuilder.build();
             checkArgument(fieldMatchMap.size() > 0, "Cannot build PI criterion with 0 field matches");
             return new PiCriterion(fieldMatchMap);

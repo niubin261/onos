@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-present Open Networking Laboratory
+ * Copyright 2014-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -429,6 +429,12 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
         @Override
         public Builder wipeDeferred() {
             clear = true;
+            return this;
+        }
+
+        @Override
+        public Builder notWipeDeferred() {
+            clear = false;
             return this;
         }
 

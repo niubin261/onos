@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-present Open Networking Laboratory
+ * Copyright 2014-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -318,6 +318,12 @@ public interface TrafficTreatment {
          * @return a treatment builder
          */
         Builder wipeDeferred();
+
+        /**
+         * the instruction to clear not wipe the deferred instructions set.
+         * @return a treatment builder
+         */
+        Builder notWipeDeferred();
 
         /**
          * Writes metadata to associate with a packet.

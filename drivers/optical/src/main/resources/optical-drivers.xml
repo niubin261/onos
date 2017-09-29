@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright 2016-present Open Networking Laboratory
+  ~ Copyright 2016-present Open Networking Foundation
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@
     </driver>
 
     <driver name="polatis" extends="default"
-            manufacturer="Polatis" hwVersion="N-VST-48x48-HU1-DMHNV-805" swVersion="6.6.1.7">
+            manufacturer="Polatis" hwVersion=".*" swVersion=".*">
         <behaviour api="org.onosproject.net.optical.OpticalDevice"
                    impl="org.onosproject.net.optical.DefaultOpticalDevice"/>
         <behaviour api="org.onosproject.openflow.controller.driver.OpenFlowSwitchDriver"

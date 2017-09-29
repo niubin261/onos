@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright 2017-present Open Networking Laboratory
+  ~ Copyright 2017-present Open Networking Foundation
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -15,11 +15,7 @@
   ~ limitations under the License.
   -->
 <drivers>
-    <driver name="bmv2" manufacturer="p4.org" hwVersion="master" swVersion="master">
-        <behaviour api="org.onosproject.net.device.DeviceHandshaker"
-                   impl="org.onosproject.drivers.bmv2.Bmv2Handshaker"/>
-        <behaviour api="org.onosproject.net.packet.PacketProgrammable"
-                   impl="org.onosproject.drivers.bmv2.Bmv2PacketProgrammable"/>
+    <driver name="bmv2" manufacturer="p4.org" hwVersion="master" swVersion="master" extends="p4runtime">
         <behaviour api="org.onosproject.net.pi.model.PiPipelineProgrammable"
                    impl="org.onosproject.drivers.bmv2.Bmv2PipelineProgrammable"/>
     </driver>

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 package org.onosproject.openstacknetworking.impl;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.Maps;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -27,49 +26,51 @@ import org.onlab.packet.ICMP;
 import org.onlab.packet.IPv4;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.MacAddress;
+import org.onlab.util.KryoNamespace;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
-import org.onosproject.mastership.MastershipService;
 import org.onosproject.net.DeviceId;
-import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
-import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.packet.DefaultOutboundPacket;
 import org.onosproject.net.packet.InboundPacket;
 import org.onosproject.net.packet.OutboundPacket;
 import org.onosproject.net.packet.PacketContext;
-import org.onosproject.net.packet.PacketPriority;
 import org.onosproject.net.packet.PacketProcessor;
 import org.onosproject.net.packet.PacketService;
 import org.onosproject.openstacknetworking.api.Constants;
 import org.onosproject.openstacknetworking.api.InstancePort;
 import org.onosproject.openstacknetworking.api.InstancePortService;
-import org.onosproject.openstacknetworking.api.OpenstackRouterService;
 import org.onosproject.openstacknetworking.api.OpenstackNetworkService;
+import org.onosproject.openstacknetworking.api.OpenstackRouterService;
 import org.onosproject.openstacknode.api.OpenstackNode;
-import org.onosproject.openstacknode.api.OpenstackNodeEvent;
-import org.onosproject.openstacknode.api.OpenstackNodeListener;
 import org.onosproject.openstacknode.api.OpenstackNodeService;
+import org.onosproject.store.serializers.KryoNamespaces;
+import org.onosproject.store.service.ConsistentMap;
+import org.onosproject.store.service.Serializer;
+import org.onosproject.store.service.StorageService;
 import org.openstack4j.model.network.ExternalGateway;
 import org.openstack4j.model.network.IP;
 import org.openstack4j.model.network.Port;
 import org.openstack4j.model.network.Router;
 import org.openstack4j.model.network.RouterInterface;
 import org.openstack4j.model.network.Subnet;
+import org.openstack4j.openstack.networking.domain.NeutronIP;
 import org.slf4j.Logger;
 
 import java.nio.ByteBuffer;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.onlab.util.Tools.groupedThreads;
-import static org.onosproject.openstacknetworking.api.Constants.*;
+import static org.onosproject.openstacknetworking.api.Constants.DEFAULT_EXTERNAL_ROUTER_MAC;
+import static org.onosproject.openstacknetworking.api.Constants.DEFAULT_GATEWAY_MAC;
+import static org.onosproject.openstacknetworking.api.Constants.OPENSTACK_NETWORKING_APP_ID;
 import static org.onosproject.openstacknode.api.OpenstackNode.NodeType.GATEWAY;
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -87,6 +88,7 @@ public class OpenstackRoutingIcmpHandler {
     protected final Logger log = getLogger(getClass());
 
     private static final String ERR_REQ = "Failed to handle ICMP request: ";
+    private static final String ERR_DUPLICATE = " already exists";
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected CoreService coreService;
@@ -95,7 +97,7 @@ public class OpenstackRoutingIcmpHandler {
     protected PacketService packetService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected MastershipService mastershipService;
+    protected StorageService storageService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected OpenstackNodeService osNodeService;
@@ -111,9 +113,14 @@ public class OpenstackRoutingIcmpHandler {
 
     private final ExecutorService eventExecutor = newSingleThreadExecutor(
             groupedThreads(this.getClass().getSimpleName(), "event-handler", log));
-    private final PacketProcessor packetProcessor = new InternalPacketProcessor();
-    private final OpenstackNodeListener osNodeListener = new InternalNodeListener();
-    private final Map<String, InstancePort> icmpInfoMap = Maps.newHashMap();
+    private final InternalPacketProcessor packetProcessor = new InternalPacketProcessor();
+    private ConsistentMap<String, InstancePort> icmpInfoMap;
+
+    private static final KryoNamespace SERIALIZER_ICMP_MAP = KryoNamespace.newBuilder()
+            .register(KryoNamespaces.API)
+            .register(InstancePort.class)
+            .register(HostBasedInstancePort.class)
+            .build();
 
     private ApplicationId appId;
 
@@ -121,8 +128,12 @@ public class OpenstackRoutingIcmpHandler {
     protected void activate() {
         appId = coreService.registerApplication(OPENSTACK_NETWORKING_APP_ID);
         packetService.addProcessor(packetProcessor, PacketProcessor.director(1));
-        osNodeService.addListener(osNodeListener);
-        requestPacket(appId);
+
+        icmpInfoMap = storageService.<String, InstancePort>consistentMapBuilder()
+                .withSerializer(Serializer.using(SERIALIZER_ICMP_MAP))
+                .withName("openstack-icmpmap")
+                .withApplicationId(appId)
+                .build();
 
         log.info("Started");
     }
@@ -130,26 +141,9 @@ public class OpenstackRoutingIcmpHandler {
     @Deactivate
     protected void deactivate() {
         packetService.removeProcessor(packetProcessor);
-        osNodeService.removeListener(osNodeListener);
         eventExecutor.shutdown();
 
         log.info("Stopped");
-    }
-
-    private void requestPacket(ApplicationId appId) {
-        TrafficSelector icmpSelector = DefaultTrafficSelector.builder()
-                .matchEthType(Ethernet.TYPE_IPV4)
-                .matchIPProtocol(IPv4.PROTOCOL_ICMP)
-                .build();
-
-        osNodeService.completeNodes(GATEWAY).forEach(gNode -> {
-            packetService.requestPackets(
-                    icmpSelector,
-                    PacketPriority.CONTROL,
-                    appId,
-                    Optional.of(gNode.intgBridge()));
-            log.debug("Requested ICMP packet to {}", gNode.intgBridge());
-        });
     }
 
     private void processIcmpPacket(PacketContext context, Ethernet ethernet) {
@@ -214,7 +208,10 @@ public class OpenstackRoutingIcmpHandler {
             String icmpInfoKey = String.valueOf(getIcmpId(icmp))
                     .concat(String.valueOf(externalIp.getIp4Address().toInt()))
                     .concat(String.valueOf(ipPacket.getDestinationAddress()));
-            icmpInfoMap.putIfAbsent(icmpInfoKey, instPort);
+            icmpInfoMap.compute(icmpInfoKey, (id, existing) -> {
+                checkArgument(existing == null, ERR_DUPLICATE);
+                return instPort;
+            });
         }
     }
 
@@ -223,8 +220,12 @@ public class OpenstackRoutingIcmpHandler {
                 .concat(String.valueOf(ipPacket.getDestinationAddress()))
                 .concat(String.valueOf(ipPacket.getSourceAddress()));
 
-        processReplyFromExternal(ipPacket, icmpInfoMap.get(icmpInfoKey));
-        icmpInfoMap.remove(icmpInfoKey);
+        if (icmpInfoMap.get(icmpInfoKey) != null) {
+            processReplyFromExternal(ipPacket, icmpInfoMap.get(icmpInfoKey).value());
+            icmpInfoMap.remove(icmpInfoKey);
+        } else {
+            log.warn("No ICMP Info for ICMP packet");
+        }
     }
 
     private Subnet getSourceSubnet(InstancePort instance, IpAddress srcIp) {
@@ -289,9 +290,15 @@ public class OpenstackRoutingIcmpHandler {
                     osRouter.getId(), osRouter.getName());
             throw new IllegalStateException(error);
         }
+        Optional<NeutronIP> externalIpAddress = (Optional<NeutronIP>) exGatewayPort.getFixedIps().stream().findFirst();
+        if (!externalIpAddress.isPresent() || externalIpAddress.get().getIpAddress() == null) {
+            final String error = String.format(ERR_REQ +
+                            "no external gateway IP address for router (ID:%s, name:%s)",
+                    osRouter.getId(), osRouter.getName());
+            throw new IllegalStateException(error);
+        }
 
-        return IpAddress.valueOf(exGatewayPort.getFixedIps().stream()
-                .findFirst().get().getIpAddress());
+        return IpAddress.valueOf(externalIpAddress.get().getIpAddress());
     }
 
     private void processRequestForGateway(IPv4 ipPacket, InstancePort instPort) {
@@ -403,39 +410,6 @@ public class OpenstackRoutingIcmpHandler {
             IPv4 iPacket = (IPv4) ethernet.getPayload();
             if (iPacket.getProtocol() == IPv4.PROTOCOL_ICMP) {
                 eventExecutor.execute(() -> processIcmpPacket(context, ethernet));
-            }
-        }
-    }
-
-    private class InternalNodeListener implements OpenstackNodeListener {
-
-        @Override
-        public boolean isRelevant(OpenstackNodeEvent event) {
-            // do not proceed without mastership
-            OpenstackNode osNode = event.subject();
-            return mastershipService.isLocalMaster(osNode.intgBridge());
-        }
-
-        @Override
-        public void event(OpenstackNodeEvent event) {
-            OpenstackNode osNode = event.subject();
-
-            switch (event.type()) {
-                case OPENSTACK_NODE_COMPLETE:
-                    if (osNode.type() == GATEWAY) {
-                        log.info("GATEWAY node {} detected", osNode.hostname());
-                        eventExecutor.execute(() -> {
-                            requestPacket(appId);
-                        });
-                    }
-                    break;
-                case OPENSTACK_NODE_CREATED:
-                case OPENSTACK_NODE_UPDATED:
-                case OPENSTACK_NODE_REMOVED:
-                case OPENSTACK_NODE_INCOMPLETE:
-                default:
-                    // do nothing
-                    break;
             }
         }
     }

@@ -21,7 +21,6 @@ CORE = UTILS + API + [
     '//core/store/persistence:onos-core-persistence',
 
     '//incubator/net:onos-incubator-net',
-    '//incubator/core:onos-incubator-core',
     '//incubator/store:onos-incubator-store',
     '//incubator/rpc:onos-incubator-rpc',
 
@@ -45,8 +44,8 @@ CORE = UTILS + API + [
     '//protocols/ovsdb/api:onos-protocols-ovsdb-api',
     '//protocols/ovsdb/ctl:onos-protocols-ovsdb-ctl',
     '//protocols/pcep/pcepio:onos-protocols-pcep-pcepio',
-    '//protocols/pcep/api:onos-protocols-pcep-api',
-    '//protocols/pcep/ctl:onos-protocols-pcep-ctl',
+    '//protocols/pcep/server/api:onos-protocols-pcep-server-api',
+    '//protocols/pcep/server/ctl:onos-protocols-pcep-server-ctl',
     '//protocols/snmp/api:onos-protocols-snmp-api',
     '//protocols/snmp/ctl:onos-protocols-snmp-ctl',
     '//protocols/isis/api:onos-protocols-isis-api',
@@ -113,6 +112,7 @@ ONOS_DRIVERS = [
     '//drivers/oplink:onos-drivers-oplink-oar',
     '//drivers/bmv2:onos-drivers-bmv2-oar',
     '//drivers/hp:onos-drivers-hp-oar',
+    '//drivers/p4runtime:onos-drivers-p4runtime-oar',
 ]
 
 ONOS_PROVIDERS = [
@@ -174,6 +174,7 @@ ONOS_APPS = [
     '//apps/pathpainter:onos-apps-pathpainter-oar',
     '//apps/pcep-api:onos-apps-pcep-api-oar',
     '//apps/pim:onos-apps-pim-oar',
+    '//apps/linkprops:onos-apps-linkprops-oar',
     '//apps/reactive-routing:onos-apps-reactive-routing-oar',
     '//apps/roadm:onos-apps-roadm-oar',
     '//apps/sdnip:onos-apps-sdnip-oar',
@@ -185,6 +186,7 @@ ONOS_APPS = [
     '//apps/test/loadtest:onos-apps-test-loadtest-oar',
     '//apps/test/netcfg-monitor:onos-apps-test-netcfg-monitor-oar',
     '//apps/test/messaging-perf:onos-apps-test-messaging-perf-oar',
+    '//apps/test/primitive-perf:onos-apps-test-primitive-perf-oar',
     '//apps/test/transaction-perf:onos-apps-test-transaction-perf-oar',
     '//apps/virtualbng:onos-apps-virtualbng-oar',
     '//apps/vpls:onos-apps-vpls-oar',
@@ -198,10 +200,12 @@ ONOS_APPS = [
     '//apps/cpman/app:onos-apps-cpman-app-oar',
     '//apps/scalablegateway:onos-apps-scalablegateway-oar',
     '//apps/castor:onos-apps-castor-oar',
-    '//apps/yms:onos-apps-yms-oar',
+#    '//apps/yms:onos-apps-yms-oar',
     '//apps/ofagent:onos-apps-ofagent-oar',
     '//apps/mappingmanagement:onos-apps-mappingmanagement-oar',
     '//apps/config:onos-apps-config-oar',
+    '//apps/configsync:onos-apps-configsync-oar',
+    '//apps/configsync-netconf:onos-apps-configsync-netconf-oar',
     '//apps/netconf/client:onos-apps-netconf-client-oar',
     '//apps/tetopology:onos-apps-tetopology-oar',
     '//apps/tetunnel:onos-apps-tetunnel-oar',
@@ -218,6 +222,15 @@ ONOS_APPS = [
     '//apps/openroadm:onos-apps-openroadm-oar',
     '//apps/pof-lldp:onos-apps-pof-lldp-oar',
     '//apps/artemis:onos-apps-artemis-oar',
+    '//apps/pi-demo/ecmp:onos-apps-pi-demo-ecmp-oar',
+    '//apps/gluon:onos-apps-gluon-oar',
+    '//apps/evpnopenflow:onos-apps-evpnopenflow-oar',
+    '//apps/route-service:onos-apps-route-service-oar',
+    '//apps/evpn-route-service:onos-apps-evpn-route-service-oar',
+    '//incubator/protobuf/registry:onos-incubator-protobuf-registry-oar',
+    '//apps/openstacknetworkingui:onos-apps-openstacknetworkingui-oar',
+    '//apps/p4-tutorial/pipeconf:onos-apps-p4-tutorial-pipeconf-oar',
+    '//apps/p4-tutorial/icmpdropper:onos-apps-p4-tutorial-icmpdropper-oar',
 ]
 
 PROTOCOL_APPS = [
@@ -227,6 +240,7 @@ PROTOCOL_APPS = [
 
 MODELS = [
     '//models/huawei:onos-models-huawei-oar',
+    '//models/openconfig:onos-models-openconfig-oar',
     '//models/openroadm:onos-models-openroadm-oar',
     '//models/l3vpn:onos-models-l3vpn-oar',
     '//models/microsemi:onos-models-microsemi-oar'
@@ -245,7 +259,7 @@ APP_JARS = [
     '//apps/vtn/sfcmgr:onos-apps-vtn-sfcmgr',
     '//apps/vtn/vtnmgr:onos-apps-vtn-vtnmgr',
     '//apps/vtn/vtnweb:onos-apps-vtn-vtnweb',
-    '//apps/p4runtime-test:onos-apps-p4runtime-test',
+#   '//apps/p4runtime-test:onos-apps-p4runtime-test',
 ]
 
 APPS = ONOS_DRIVERS + ONOS_PROVIDERS + ONOS_APPS + MODELS + PROTOCOL_APPS

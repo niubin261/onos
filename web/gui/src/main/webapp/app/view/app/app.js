@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-present Open Networking Laboratory
+ * Copyright 2015-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the 'License');
  * you may not use this file except in compliance with the License.
@@ -45,34 +45,35 @@
         detailsResp = 'appDetailsResponse',
         fileUploadUrl = 'applications/upload',
         activateOption = '?activate=true',
-        iconUrlPrefix = 'rs/applications/',
+        appUrlPrefix = 'rs/applications/',
         iconUrlSuffix = '/icon',
+        downloadSuffix = '/download',
         dialogId = 'app-dialog',
         dialogOpts = {
             edge: 'right',
-            width: 400
+            width: 400,
         },
         strongWarning = {
-            'org.onosproject.drivers': true
+            'org.onosproject.drivers': true,
         },
         propOrder = ['id', 'state', 'category', 'version', 'origin', 'role'];
         // note: url is handled separately
 
     // deferred localization strings
-    var warn_deactivate,
-        warn_own_risk,
+    var warnDeactivate,
+        warnOwnRisk,
         friendlyProps,
         lion;
 
     function doLion() {
         lion = ls.bundle('core.view.App');
 
-        warn_deactivate = lion('dlg_warn_deactivate');
-        warn_own_risk = lion('dlg_warn_own_risk');
+        warnDeactivate = lion('dlg_warn_deactivate');
+        warnOwnRisk = lion('dlg_warn_own_risk');
 
         friendlyProps = [
             lion('app_id'), lion('state'), lion('category'), lion('version'),
-            lion('origin'), lion('role')
+            lion('origin'), lion('role'),
         ];
     }
 
@@ -80,11 +81,11 @@
         detailsPanel = ps.createPanel(pName, {
             width: wSize.width,
             margin: 0,
-            hideMargin: 0
+            hideMargin: 0,
         });
         detailsPanel.el().style({
             position: 'absolute',
-            top: pStartY + 'px'
+            top: pStartY + 'px',
         });
         $scope.hidePanel = function () { detailsPanel.hide(); };
         detailsPanel.hide();
@@ -119,7 +120,7 @@
         div = top.append('div').classed('top-content', true);
 
         function ndiv(cls, tcls) {
-            var  d = div.append('div').classed(cls, true);
+            var d = div.append('div').classed(cls, true);
             if (tcls) {
                 d.append('table').classed(tcls, true);
             }
@@ -167,7 +168,7 @@
     }
 
     function addIcon(elem, value) {
-        elem.append('img').attr('src', iconUrlPrefix + value + iconUrlSuffix);
+        elem.append('img').attr('src', appUrlPrefix + value + iconUrlSuffix);
     }
 
     function populateTop(details) {
@@ -250,6 +251,7 @@
         $scope.activateTip = lion('tt_ctl_activate');
         $scope.deactivateTip = lion('tt_ctl_deactivate');
         $scope.uninstallTip = lion('tt_ctl_uninstall');
+        $scope.downloadTip = lion('tt_ctl_download');
 
 
         var handlers = {};
@@ -262,7 +264,7 @@
             // $scope.selId is set by code in tableBuilder
             $scope.ctrlBtnState.selection = !!$scope.selId;
             refreshCtrls();
-            ds.closeDialog();  // don't want dialog from previous selection
+            ds.closeDialog(); // don't want dialog from previous selection
 
             if ($scope.selId) {
                 wss.sendEvent(detailsReq, { id: row.id });
@@ -295,18 +297,18 @@
                 firstCol: 'state',
                 firstDir: 'desc',
                 secondCol: 'title',
-                secondDir: 'asc'
+                secondDir: 'asc',
             },
-            lion_toggle_auto_refresh: lion('tt_ctl_auto_refresh')
+            lion_toggle_auto_refresh: lion('tt_ctl_auto_refresh'),
         });
 
         ks.keyBindings({
             esc: [$scope.selectCallback, lion('qh_hint_esc')],
-            _helpFormat: ['esc']
+            _helpFormat: ['esc'],
         });
         ks.gestureNotes([
             [lion('click_row'), lion('qh_hint_click_row')],
-            [lion('scroll_down'), lion('qh_hint_scroll_down')]
+            [lion('scroll_down'), lion('qh_hint_scroll_down')],
         ]);
 
         function createConfirmationText(action, itemId) {
@@ -314,9 +316,9 @@
             content.append('p').text(lion(action) + ' ' + itemId);
             if (strongWarning[itemId]) {
                 content.append('p').html(
-                    fs.sanitize(warn_deactivate) +
+                    fs.sanitize(warnDeactivate) +
                     '<br>' +
-                    fs.sanitize(warn_own_risk)
+                    fs.sanitize(warnOwnRisk)
                 ).classed('strong', true);
             }
             return content;
@@ -332,12 +334,12 @@
                     action: action,
                     name: itemId,
                     sortCol: spar.sortCol,
-                    sortDir: spar.sortDir
+                    sortDir: spar.sortDir,
                 });
                 if (action === 'uninstall') {
                     detailsPanel.hide();
                 } else {
-                    wss.sendEvent(detailsReq, {id: itemId});
+                    wss.sendEvent(detailsReq, { id: itemId });
                 }
             }
 
@@ -359,6 +361,12 @@
             }
         };
 
+        $scope.downloadApp = function () {
+            if ($scope.ctrlBtnState.selection) {
+                window.location = appUrlPrefix + $scope.selId + downloadSuffix;
+            }
+        };
+
         $scope.$on('FileChanged', function () {
             var formData = new FormData(),
                 url;
@@ -370,8 +378,8 @@
                 $http.post(ufs.rsUrl(url), formData, {
                     transformRequest: angular.identity,
                     headers: {
-                        'Content-Type': undefined
-                    }
+                        'Content-Type': undefined,
+                    },
                 })
                 .finally(function () {
                     activateImmediately = '';
@@ -382,7 +390,7 @@
             }
         });
 
-        $scope.appDropped = function() {
+        $scope.appDropped = function () {
             activateImmediately = activateOption;
             $scope.$emit('FileChanged');
             $scope.appFile = null;
@@ -406,7 +414,7 @@
                     document.getElementById('uploadFile')
                         .dispatchEvent(new MouseEvent('click'));
                 });
-            }
+            },
         };
     })
 
@@ -426,13 +434,13 @@
                         });
                         scope.$emit('FileChanged');
                     });
-                }
+                },
             };
         }])
 
-    .directive("filedrop", ['$parse', '$document', function ($parse, $document) {
+    .directive('filedrop', ['$parse', '$document', function ($parse, $document) {
         return {
-            restrict: "A",
+            restrict: 'A',
             link: function (scope, element, attrs) {
                 var onAppDrop = $parse(attrs.onFileDrop);
 
@@ -455,16 +463,16 @@
                 };
 
                 // Dragging begins on the document
-                $document.bind("dragover", onDragOver);
+                $document.bind('dragover', onDragOver);
 
                 // Dragging ends on the overlay, which takes the whole window
-                element.bind("dragleave", onDragEnd)
-                    .bind("drop", function (e) {
+                element.bind('dragleave', onDragEnd)
+                    .bind('drop', function (e) {
                         $log.info('Drag leave', e);
                         loadFile(e.dataTransfer.files[0]);
                         onDragEnd(e);
                     });
-            }
+            },
         };
     }])
 
@@ -497,13 +505,13 @@
                 // create key bindings to handle panel
                 ks.keyBindings({
                     esc: [closePanel, lion('qh_hint_close_detail')],
-                    _helpFormat: ['esc']
+                    _helpFormat: ['esc'],
                 });
 
                 // TODO: Review - why are we doing this in the detail panel...?
                 ks.gestureNotes([
                     [lion('click_row'), lion('qh_hint_click_row')],
-                    [lion('scroll_down'), lion('qh_hint_scroll_down')]
+                    [lion('scroll_down'), lion('qh_hint_scroll_down')],
                 ]);
 
                 // if the panelData changes
@@ -519,7 +527,7 @@
                     function () {
                         return {
                             h: $window.innerHeight,
-                            w: $window.innerWidth
+                            w: $window.innerWidth,
                         };
                     }, function () {
                         if (!fs.isEmptyObject(scope.panelData)) {

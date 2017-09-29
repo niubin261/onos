@@ -32,7 +32,6 @@ INSTALL = [
     '//core/store/serializers:onos-core-serializers-install',
 
     '//incubator/net:onos-incubator-net-install',
-    '//incubator/core:onos-incubator-core-install',
     '//incubator/store:onos-incubator-store-install',
     '//incubator/rpc:onos-incubator-rpc-install',
 
@@ -56,6 +55,7 @@ tar_file(
                'tools/dev/bin/onos-create-app',
                'tools/build/envDefaults'
            ],
+    other_tars = [ '//tools/package:onos-package-runtime' ],
 )
 
 only_lib_dep_pom(

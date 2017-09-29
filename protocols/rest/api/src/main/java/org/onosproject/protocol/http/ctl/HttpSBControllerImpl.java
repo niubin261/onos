@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -145,7 +145,9 @@ public class HttpSBControllerImpl implements HttpSBController {
                       Class<T> responseClass) {
         Response response = getResponse(device, request, payload, mediaType);
         if (response != null && response.hasEntity()) {
-            return response.readEntity(responseClass);
+            // Do not read the entity if the responseClass is of type Response. This would allow the
+            // caller to receive the Response directly and try to read its appropriate entity locally.
+            return responseClass == Response.class ? (T) response : response.readEntity(responseClass);
         }
         log.error("Response from device {} for request {} contains no entity", device, request);
         return null;

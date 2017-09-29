@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-present Open Networking Laboratory
+ * Copyright 2015-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ import com.google.common.collect.Streams;
          description = "Installs a number of test flow rules - for testing only")
 public class AddTestFlowsCommand extends AbstractShellCommand {
 
-    private static final int MAX_OUT_PORT = 65279;
+    private static final int MAX_OUT_PORT = 254;
 
     private CountDownLatch latch;
 

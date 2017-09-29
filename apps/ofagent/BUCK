@@ -1,5 +1,8 @@
 COMPILE_DEPS = [
     '//lib:CORE_DEPS',
+    '//lib:NETTY',
+    '//lib:JACKSON',
+    '//lib:KRYO',
     '//core/store/serializers:onos-core-serializers',
     '//core/common:onos-core-common',
     '//incubator/api:onos-incubator-api',
@@ -12,6 +15,12 @@ COMPILE_DEPS = [
     '//lib:openflowj',
     '//lib:javax.ws.rs-api',
     '//utils/rest:onlab-rest',
+    '//providers/openflow/flow:onos-providers-openflow-flow',
+]
+
+BUNDLES = [
+    '//apps/ofagent:onos-apps-ofagent',
+    '//providers/openflow/flow:onos-providers-openflow-flow',
 ]
 
 TEST_DEPS = [
@@ -21,17 +30,23 @@ TEST_DEPS = [
     '//lib:TEST_REST',
     '//lib:jersey-server',
     '//web/api:onos-rest-tests',
+    '//lib:minimal-json',
 ]
 
 osgi_jar_with_tests (
     deps = COMPILE_DEPS,
     test_deps = TEST_DEPS,
-    web_context = '/onos/v1/ofagent',
+    web_context = '/onos/ofagent',
+    api_title = 'OFAgent API',
+    api_version = '1.0',
+    api_description = 'REST API for OFAgent',
+    api_package = 'org.onosproject.ofagent.rest',
 )
 
 onos_app (
-    title = 'OpenFlow Agent App',
+    title = 'OpenFlow Agent',
     category = 'Traffic Steering',
     url = 'http://onosproject.org',
+    included_bundles = BUNDLES,
     description = 'OpenFlow agent application for virtualization subsystem.',
 )

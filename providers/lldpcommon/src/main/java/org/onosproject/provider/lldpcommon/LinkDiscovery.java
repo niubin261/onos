@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -265,7 +265,7 @@ public class LinkDiscovery implements TimerTask {
         if (context.packetService() == null) {
             return;
         }
-        log.trace("Sending probes out to {}@{}", portNumber, device.id());
+        log.trace("Sending probes out of {}@{}", portNumber, device.id());
         OutboundPacket pkt = createOutBoundLldp(portNumber);
         context.packetService().emit(pkt);
         if (context.useBddp()) {

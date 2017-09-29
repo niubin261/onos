@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ final class RaftMessageContext {
     final MessageSubject pollSubject;
     final MessageSubject voteSubject;
     final MessageSubject appendSubject;
+    final MessageSubject transferSubject;
 
     RaftMessageContext(String prefix) {
         this.prefix = prefix;
@@ -53,6 +54,7 @@ final class RaftMessageContext {
         this.pollSubject = getSubject(prefix, "poll");
         this.voteSubject = getSubject(prefix, "vote");
         this.appendSubject = getSubject(prefix, "append");
+        this.transferSubject = getSubject(prefix, "transfer");
     }
 
     private static MessageSubject getSubject(String prefix, String type) {

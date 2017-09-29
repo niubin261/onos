@@ -8,6 +8,7 @@ COMPILE_DEPS = [
     '//protocols/p4runtime/api:onos-protocols-p4runtime-api',
     '//protocols/p4runtime/ctl:onos-protocols-p4runtime-ctl',
     '//protocols/p4runtime/proto:onos-protocols-p4runtime-proto',
+    '//drivers/bmv2:onos-drivers-bmv2',
     '//incubator/grpc-dependencies:grpc-core-repkg-' + GRPC_VER,
     '//lib:grpc-stub-' + GRPC_VER,
     '//lib:protobuf-java-' + PROTOBUF_VER,
@@ -35,9 +36,11 @@ TEST_DEPS = [
     '//lib:netty-transport',
     '//lib:netty-transport-native-epoll',
     '//lib:netty-resolver',
+    '//lib:minimal-json',
 ]
 
-osgi_jar_with_tests(
-    deps = COMPILE_DEPS,
-    test_deps = TEST_DEPS,
+java_test(
+    name = "onos-apps-p4runtime-test-tests",
+    srcs = glob([ 'src/test/java/**/*.java' ]),
+    deps = COMPILE_DEPS + TEST_DEPS,
 )

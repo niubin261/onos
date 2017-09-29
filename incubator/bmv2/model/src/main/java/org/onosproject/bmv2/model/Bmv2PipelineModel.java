@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ public class Bmv2PipelineModel implements PiPipelineModel {
         Map<String, PiHeaderModel> headerModelMap = Maps.newHashMap();
         headerModels.stream()
                 .filter(Objects::nonNull)
-                .forEach(hm -> headerModelMap.put(hm.type().name(), hm));
+                .forEach(hm -> headerModelMap.put(hm.name(), hm));
         this.headerModels = ImmutableMap.copyOf(headerModelMap);
 
         Map<String, PiActionModel> actionModelMap = Maps.newHashMap();

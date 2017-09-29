@@ -31,8 +31,10 @@ BUNDLES = [
 onos_app (
     app_name = 'org.onosproject.protocols.grpc',
     title = 'gRPC Protocol Subsystem',
-    category = 'Protocols',
+    category = 'Protocol',
     url = 'http://onosproject.org',
-    description = 'ONOS gRPC protocol subsystem',
+    description = 'Exposes APIs to setup, manage and teardown gRPC Managed channels with devices. ' +
+        'Also offers channel observer registration and removal capabilities. ' +
+        'The exposed APis abstract low level channel operations.',
     included_bundles = BUNDLES,
 )

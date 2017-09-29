@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,15 +38,14 @@ public interface PiTableAction {
          */
         ACTION,
 
-        // TODO: in P4Runtime a table action can be any of the following 3.
-        // How to represent action profiles?
-        /* message TableAction {
-              oneof type {
-                Action action = 1;
-                uint32 action_profile_member_id = 2;
-                uint32 action_profile_group_id = 3;
-              }
-            }
-        */
+        /**
+         * Executes the action group specified by the given identifier.
+         */
+        ACTION_GROUP_ID,
+
+        /**
+         * Executes the action member group specified by the given identifier.
+         */
+        GROUP_MEMBER_ID
     }
 }

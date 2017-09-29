@@ -1,9 +1,15 @@
 COMPILE_DEPS = [
     '//lib:COMPILE',
-    '//lib:floodlightpof',
+    '//lib:NETTY',
+    '//lib:JACKSON',
+    '//lib:METRICS',
+    '//lib:KRYO',
     '//utils/misc:onlab-misc',
     '//utils/osgi:onlab-osgi',
     '//utils/rest:onlab-rest',
+    '//lib:joda-time',
+    '//lib:netty',
+    '//lib:floodlightpof',
 ]
 
 osgi_jar_with_tests (

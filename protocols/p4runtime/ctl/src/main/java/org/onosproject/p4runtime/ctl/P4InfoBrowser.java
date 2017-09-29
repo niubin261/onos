@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -237,7 +237,7 @@ final class P4InfoBrowser {
      *
      * @param controllerPacketMetadataId controller packet metadata identifier
      * @return metadata browser
-     * @throws NotFoundException controller packet metadata cannot be foudn
+     * @throws NotFoundException controller packet metadata cannot be found
      */
     EntityBrowser<ControllerPacketMetadata.Metadata> packetMetadatas(int controllerPacketMetadataId)
             throws NotFoundException {

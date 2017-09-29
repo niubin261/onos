@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ public final class ProtobufUtils {
      * Translates gRPC enum MastershipRoleProto to ONOS enum.
      *
      * @param role mastership role in gRPC enum
-     * @return equivalent in ONOS enum
+     * @return equivalent ONOS enum
      */
     public static MastershipRole translate(MastershipRoleProto role) {
         switch (role) {
@@ -79,7 +79,7 @@ public final class ProtobufUtils {
      * Translates ONOS enum MastershipRole to gRPC enum.
      *
      * @param newRole ONOS' mastership role
-     * @return equivalent in gRPC message enum
+     * @return equivalent gRPC message enum
      */
     public static MastershipRoleProto translate(MastershipRole newRole) {
         switch (newRole) {
@@ -92,7 +92,6 @@ public final class ProtobufUtils {
                 return MastershipRoleProto.NONE;
         }
     }
-
 
     /**
      * Translates gRPC DeviceDescriptionProto to {@link DeviceDescription}.
@@ -138,7 +137,6 @@ public final class ProtobufUtils {
                 .putAllAnnotations(asMap(deviceDescription.annotations()))
                 .build();
     }
-
 
     /**
      * Translates gRPC DeviceTypeProto to {@link Device.Type}.

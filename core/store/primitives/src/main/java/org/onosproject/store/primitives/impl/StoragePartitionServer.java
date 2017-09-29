@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package org.onosproject.store.primitives.impl;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -39,8 +40,10 @@ public class StoragePartitionServer implements Managed<StoragePartitionServer> {
 
     private final Logger log = getLogger(getClass());
 
-    private static final int MAX_ENTRIES_PER_LOG_SEGMENT = 32768;
     private static final int MAX_SEGMENT_SIZE = 1024 * 1024 * 64;
+    private static final long ELECTION_TIMEOUT_MILLIS = 2500;
+    private static final long HEARTBEAT_INTERVAL_MILLIS = 1000;
+
     private final MemberId localMemberId;
     private final StoragePartition partition;
     private final Supplier<RaftServerProtocol> protocol;
@@ -98,11 +101,12 @@ public class StoragePartitionServer implements Managed<StoragePartitionServer> {
         RaftServer.Builder builder = RaftServer.newBuilder(localMemberId)
                 .withName("partition-" + partition.getId())
                 .withProtocol(protocol.get())
+                .withElectionTimeout(Duration.ofMillis(ELECTION_TIMEOUT_MILLIS))
+                .withHeartbeatInterval(Duration.ofMillis(HEARTBEAT_INTERVAL_MILLIS))
                 .withStorage(RaftStorage.newBuilder()
-                        .withStorageLevel(StorageLevel.DISK)
+                        .withStorageLevel(StorageLevel.MAPPED)
                         .withSerializer(new AtomixSerializerAdapter(Serializer.using(StorageNamespaces.RAFT_STORAGE)))
                         .withDirectory(dataFolder)
-                        .withMaxEntriesPerSegment(MAX_ENTRIES_PER_LOG_SEGMENT)
                         .withMaxSegmentSize(MAX_SEGMENT_SIZE)
                         .build());
         StoragePartition.RAFT_SERVICES.forEach(builder::addService);

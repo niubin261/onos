@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,15 +30,19 @@ import org.onosproject.net.packet.DefaultOutboundPacket;
 import org.onosproject.net.packet.DefaultPacketContext;
 import org.onosproject.net.packet.InboundPacket;
 import org.onosproject.net.packet.OutboundPacket;
+import org.onosproject.net.packet.PacketContext;
 import org.onosproject.net.packet.PacketProgrammable;
 import org.onosproject.net.packet.PacketProvider;
 import org.onosproject.net.packet.PacketProviderRegistry;
 import org.onosproject.net.packet.PacketProviderService;
+import org.onosproject.net.pi.model.PiPipelineInterpreter;
+import org.onosproject.net.pi.runtime.PiPacketOperation;
 import org.onosproject.net.provider.AbstractProvider;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.p4runtime.api.P4RuntimeController;
 import org.onosproject.p4runtime.api.P4RuntimeEvent;
 import org.onosproject.p4runtime.api.P4RuntimeEventListener;
+import org.onosproject.p4runtime.api.P4RuntimePacketIn;
 import org.slf4j.Logger;
 
 import java.nio.ByteBuffer;
@@ -130,7 +134,10 @@ public class P4RuntimePacketProvider extends AbstractProvider implements PacketP
                 treatment = outPacket().treatment();
             }
 
-            emit(new DefaultOutboundPacket(deviceId, treatment, rawData));
+            OutboundPacket outboundPacket = new DefaultOutboundPacket(deviceId, treatment, rawData);
+            log.debug("Processing outbound packet: {}", outboundPacket);
+
+            emit(outboundPacket);
         }
     }
 
@@ -139,15 +146,45 @@ public class P4RuntimePacketProvider extends AbstractProvider implements PacketP
      */
     private class InternalPacketListener implements P4RuntimeEventListener {
 
-
         @Override
         public void event(P4RuntimeEvent event) {
-            /**
-             * TODO: handle packet-in event.
-             * The inputport need parse from metadata() of packet_in event,
-             * but support for parsing metadata() is not ready yet.
-             */
+            P4RuntimePacketIn eventSubject = (P4RuntimePacketIn) event.subject();
+            DeviceId deviceId = eventSubject.deviceId();
 
+            Device device = deviceService.getDevice(eventSubject.deviceId());
+            if (device == null) {
+                log.warn("Unable to process packet-in from {}, device is null in the core", deviceId);
+                return;
+            }
+
+            if (!device.is(PiPipelineInterpreter.class)) {
+                log.warn("Unable to process packet-in from {}, device has no PiPipelineInterpreter behaviour",
+                         deviceId);
+                return;
+            }
+
+            PiPacketOperation operation = eventSubject.packetOperation();
+            InboundPacket inPkt;
+            try {
+                inPkt = device.as(PiPipelineInterpreter.class).mapInboundPacket(eventSubject.deviceId(), operation);
+            } catch (PiPipelineInterpreter.PiInterpreterException e) {
+                log.warn("Unable to interpret inbound packet from {}: {}", deviceId, e.getMessage());
+                return;
+            }
+
+            if (inPkt == null) {
+                log.debug("Received null inbound packet. Ignoring.");
+                return;
+            }
+
+            log.debug("Processing inbound packet: {}", inPkt.toString());
+
+            OutboundPacket outPkt = new DefaultOutboundPacket(eventSubject.deviceId(), null,
+                                                              operation.data().asReadOnlyBuffer());
+            PacketContext pktCtx = new P4RuntimePacketContext(System.currentTimeMillis(), inPkt, outPkt, false);
+
+            // Pushing the packet context up for processing.
+            providerService.processPacket(pktCtx);
         }
     }
 }

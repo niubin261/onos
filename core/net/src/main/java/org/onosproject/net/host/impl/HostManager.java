@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-present Open Networking Laboratory
+ * Copyright 2014-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ import org.onlab.packet.MacAddress;
 import org.onlab.packet.VlanId;
 import org.onlab.util.Tools;
 import org.onosproject.cfg.ComponentConfigService;
-import org.onosproject.incubator.net.intf.InterfaceService;
+import org.onosproject.net.intf.Interface;
+import org.onosproject.net.intf.InterfaceService;
 import org.onosproject.net.HostLocation;
 import org.onosproject.net.edge.EdgePortService;
 import org.onosproject.net.provider.AbstractListenerProviderRegistry;
@@ -63,7 +64,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static org.onlab.packet.IPv6.getLinkLocalAddress;
-import static org.onosproject.net.link.ProbedLinkProvider.DEFAULT_MAC;
 import static org.onosproject.security.AppGuard.checkPermission;
 import static org.onosproject.security.AppPermission.Type.HOST_EVENT;
 import static org.onosproject.security.AppPermission.Type.HOST_READ;
@@ -349,7 +349,7 @@ public class HostManager
 
             // Greedy learning of IPv6 host. We have to disable the greedy
             // learning of configured hosts. Validate hosts each time will
-            // overwrite the learnt information with the configured informations.
+            // overwrite the learnt information with the configured information.
             if (greedyLearningIpv6) {
                 // Auto-generation of the IPv6 link local address
                 // using the mac address
@@ -365,19 +365,18 @@ public class HostManager
                     }
                     // Host does not exist in the store or the target is not known
                     if ((host == null || !host.ipAddresses().contains(targetIp6Address))) {
-                        // We generate ONOS ip from the ONOS default mac
-                        // We could use the mac generated for the link
-                        // discovery but maybe does not worth
-                        MacAddress onosMacAddress = MacAddress.valueOf(DEFAULT_MAC);
-                        Ip6Address onosIp6Address = Ip6Address.valueOf(
-                                getLinkLocalAddress(onosMacAddress.toBytes())
-                        );
+                        // Use DAD to probe if interface MAC is not specified
+                        MacAddress probeMac = interfaceService.getInterfacesByPort(hostDescription.location())
+                                .stream().map(Interface::mac).findFirst().orElse(MacAddress.ONOS);
+                        Ip6Address probeIp = !probeMac.equals(MacAddress.ONOS) ?
+                                Ip6Address.valueOf(getLinkLocalAddress(probeMac.toBytes())) :
+                                Ip6Address.ZERO;
                         // We send a probe using the monitoring service
                         monitor.sendProbe(
                                 hostDescription.location(),
                                 targetIp6Address,
-                                onosIp6Address,
-                                onosMacAddress,
+                                probeIp,
+                                probeMac,
                                 hostId.vlanId()
                         );
                     }
@@ -455,10 +454,23 @@ public class HostManager
             store.removeLocation(hostId, location);
         }
 
+        @Override
+        public MacAddress addPendingHostLocation(HostId hostId, HostLocation hostLocation) {
+            return store.addPendingHostLocation(hostId, hostLocation);
+        }
+
+        @Override
+        public void removePendingHostLocation(MacAddress probeMac) {
+            store.removePendingHostLocation(probeMac);
+        }
+
+        /**
+         * Providers should only be able to remove a host that is provided by itself,
+         * or a host that is not configured.
+         */
         private boolean allowedToChange(HostId hostId) {
-            // Disallow removing inexistent host or host provided by others
             Host host = store.getHost(hostId);
-            return host != null && host.providerId().equals(provider().id());
+            return host == null || !host.configured() || host.providerId().equals(provider().id());
         }
     }
 

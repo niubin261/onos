@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -390,7 +390,7 @@ public final class InsConstructionUtil {
      * @param modObj model object data
      * @return driver model object data
      */
-    static Object getDeleteVpnIns(ModelObjectData modObj) {
+    static ModelObjectData getDeleteVpnIns(ModelObjectData modObj) {
         ModelIdLevel modIdLvl = DEVICE;
         String id = getIdFromModId(modObj.identifier(), true);
         Object obj = getObjFromModData(modObj);
@@ -472,7 +472,7 @@ public final class InsConstructionUtil {
      * @param id device id
      * @return model object id builder
      */
-    private static ModelObjectId.Builder getModObjIdDriDevice(String id) {
+    static ModelObjectId.Builder getModObjIdDriDevice(String id) {
         DeviceKeys key = new DeviceKeys();
         key.deviceid(id);
         return ModelObjectId.builder()

@@ -1,11 +1,11 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,6 +29,7 @@ import org.onosproject.config.DynamicConfigStoreDelegate;
 import org.onosproject.config.FailedException;
 import org.onosproject.config.Filter;
 import org.onosproject.config.ResourceIdParser;
+import org.onosproject.d.config.ResourceIds;
 import org.onosproject.store.AbstractStore;
 import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.service.AsyncDocumentTree;
@@ -40,6 +41,7 @@ import org.onosproject.store.service.IllegalDocumentModificationException;
 import org.onosproject.store.service.MapEvent;
 import org.onosproject.store.service.MapEventListener;
 import org.onosproject.store.service.NoSuchDocumentPathException;
+import org.onosproject.store.service.Ordering;
 import org.onosproject.store.service.Serializer;
 import org.onosproject.store.service.StorageService;
 import org.onosproject.store.service.Versioned;
@@ -56,7 +58,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -74,11 +78,19 @@ import static org.onosproject.config.DynamicConfigEvent.Type.UNKNOWN_OPRN;
 public class DistributedDynamicConfigStore
         extends AbstractStore<DynamicConfigEvent, DynamicConfigStoreDelegate>
         implements DynamicConfigStore {
+
     private final Logger log = LoggerFactory.getLogger(getClass());
+
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected StorageService storageService;
+
+    // FIXME transactionally mutate the 2 or consolidate into 1 AsyncDocTree
+    // effectively tree structure only
     private AsyncDocumentTree<DataNode.Type> keystore;
+    // TODO Can we pass DocumentPath directly to ConsistentMap?
+    // Map<DocumentPath as String, leaf value>
     private ConsistentMap<String, LeafNode> objectStore;
+
     private final DocumentTreeListener<DataNode.Type> klistener = new InternalDocTreeListener();
     private final MapEventListener<String, LeafNode> olistener = new InternalMapListener();
 
@@ -86,7 +98,7 @@ public class DistributedDynamicConfigStore
     public void activateStore() {
         KryoNamespace.Builder kryoBuilder = new KryoNamespace.Builder()
                 .register(KryoNamespaces.BASIC)
-                .register(java.lang.Class.class)
+                .register(Class.class)
                 .register(DataNode.Type.class)
                 .register(LeafNode.class)
                 .register(InnerNode.class)
@@ -97,11 +109,12 @@ public class DistributedDynamicConfigStore
                 .register(ListKey.class)
                 .register(KeyLeaf.class)
                 .register(BigInteger.class)
-                .register(java.util.LinkedHashMap.class);
+                .register(LinkedHashMap.class);
         keystore = storageService.<DataNode.Type>documentTreeBuilder()
                 .withSerializer(Serializer.using(kryoBuilder.build()))
                 .withName("config-key-store")
                 .withRelaxedReadConsistency()
+                .withOrdering(Ordering.INSERTION)
                 .buildDocumentTree();
         objectStore = storageService.<String, LeafNode>consistentMapBuilder()
                 .withSerializer(Serializer.using(kryoBuilder.build()))
@@ -122,23 +135,31 @@ public class DistributedDynamicConfigStore
 
     @Override
     public CompletableFuture<Boolean>
-    addNode(ResourceId complete, DataNode node) {
-        CompletableFuture<Boolean> eventFuture = CompletableFuture.completedFuture(true);
-        String spath = ResourceIdParser.parseResId(complete);
+    addNode(ResourceId parent, DataNode node) {
+        String spath = ResourceIdParser.parseResId(parent);
+        log.trace(" addNode({}, {})", parent, node);
+        log.trace(" spath={}", spath);
         if (spath == null) {
             throw new FailedException("Invalid RsourceId, cannot create Node");
         }
-        if (spath.compareTo(ResourceIdParser.ROOT) != 0) {
+        if (!spath.equals(ResourceIdParser.ROOT)) {
             if (completeVersioned(keystore.get(DocumentPath.from(spath))) == null) {
-                throw new FailedException("Node or parent doesnot exist");
+                throw new FailedException("Node or parent does not exist for " + spath);
             }
         }
-        spath = ResourceIdParser.appendNodeKey(spath, node.key());
-        parseNode(spath, node);
-        return eventFuture;
+        ResourceId abs = ResourceIds.resourceId(parent, node);
+        //spath = ResourceIdParser.appendNodeKey(spath, node.key());
+        parseNode(ResourceIdParser.parseResId(abs), node);
+        return CompletableFuture.completedFuture(true);
     }
 
+    // FIXME this is more like addNode
+    /**
+     * @param path pointing to {@code node}
+     * @param node node
+     */
     private void parseNode(String path, DataNode node) {
+        log.trace("parseNode({}, {})", path, node);
         if (completeVersioned(keystore.get(DocumentPath.from(path))) != null) {
             throw new FailedException("Requested node already present in the" +
                                               " store, please use an update method");
@@ -166,12 +187,19 @@ public class DistributedDynamicConfigStore
         }
     }
 
+    // FIXME this is more like addInnteNode
+    /**
+     * @param path pointing to {@code node}
+     * @param node node
+     */
     private void traverseInner(String path, InnerNode node) {
+        log.trace("traverseInner({}, {})", path, node);
         addKey(path, node.type());
         Map<NodeKey, DataNode> entries = node.childNodes();
         if (entries.size() == 0) {
             return;
         }
+        // FIXME ignoring results
         entries.forEach((k, v) -> {
             String tempPath;
             tempPath = ResourceIdParser.appendNodeKey(path, v.key());
@@ -197,9 +225,19 @@ public class DistributedDynamicConfigStore
     }
 
     private Boolean addKey(String path, DataNode.Type type) {
-        Boolean stat = false;
-        CompletableFuture<Boolean> ret = keystore.create(DocumentPath.from(path), type);
-        return complete(ret);
+        log.trace("addKey({}, {})", path, type);
+        DocumentPath dpath = DocumentPath.from(path);
+        log.trace("dpath={}", dpath);
+        // FIXME Not atomic, should probably use create or replace
+        if (completeVersioned(keystore.get(dpath)) != null) {
+            completeVersioned(keystore.set(dpath, type));
+            log.trace("true");
+            return true;
+        }
+        log.trace(" keystore.create({}, {})", dpath, type);
+        Boolean result = complete(keystore.create(dpath, type));
+        log.trace("{}", result);
+        return result;
     }
 
     @Override
@@ -211,8 +249,9 @@ public class DistributedDynamicConfigStore
         CompletableFuture<Versioned<DataNode.Type>> ret = keystore.get(dpath);
         type = completeVersioned(ret);
         if (type == null) {
-            throw new FailedException("Requested node or some of the parents" +
-                                              "are not present in the requested path");
+            throw new FailedException("Requested node or some of the parents " +
+                                      "are not present in the requested path: " +
+                                      spath);
         }
         DataNode retVal = null;
         if (type == DataNode.Type.SINGLE_INSTANCE_LEAF_VALUE_NODE) {
@@ -482,44 +521,22 @@ public class DistributedDynamicConfigStore
             return future.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            if (e == null) {
-                throw new FailedException("Unknown Exception");
-            } else {
-                throw new FailedException(e.getCause().getMessage());
-            }
+            throw new FailedException(e.getCause().getMessage());
         } catch (ExecutionException e) {
-            if (e == null) {
-                throw new FailedException("Unknown Exception");
-            } else if (e.getCause() instanceof IllegalDocumentModificationException) {
-                throw new FailedException("Node or parent doesnot exist or is root or is not a Leaf Node");
+            if (e.getCause() instanceof IllegalDocumentModificationException) {
+                throw new FailedException("Node or parent does not exist or is root or is not a Leaf Node",
+                                          e.getCause());
             } else if (e.getCause() instanceof NoSuchDocumentPathException) {
-                throw new FailedException("Resource id does not exist");
+                throw new FailedException("ResourceId does not exist", e.getCause());
             } else {
-                throw new FailedException("Datastore operation failed");
+                throw new FailedException("Datastore operation failed", e.getCause());
             }
         }
     }
 
     private <T> T completeVersioned(CompletableFuture<Versioned<T>> future) {
-        try {
-            if (future.get() != null) {
-                return future.get().value();
-            } else {
-                return null;
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new FailedException(e.getCause().getMessage());
-        } catch (ExecutionException e) {
-            if (e == null) {
-                throw new FailedException("Unknown Exception");
-            } else if (e.getCause() instanceof IllegalDocumentModificationException) {
-                throw new FailedException("Node or parent does not exist or is root or is not a Leaf Node");
-            } else if (e.getCause() instanceof NoSuchDocumentPathException) {
-                throw new FailedException("Resource id does not exist");
-            } else {
-                throw new FailedException("Datastore operation failed");
-            }
-        }
-    }
+        return Optional.ofNullable(complete(future))
+                        .map(Versioned::value)
+                        .orElse(null);
+   }
 }

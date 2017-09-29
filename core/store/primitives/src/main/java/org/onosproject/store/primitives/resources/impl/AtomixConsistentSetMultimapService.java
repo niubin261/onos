@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -130,7 +130,7 @@ public class AtomixConsistentSetMultimapService extends AbstractRaftService {
 
         listeners = new LinkedHashMap<>();
         for (Long sessionId : reader.<Set<Long>>readObject(serializer::decode)) {
-            listeners.put(sessionId, getSessions().getSession(sessionId));
+            listeners.put(sessionId, sessions().getSession(sessionId));
         }
 
         backingMap = reader.readObject(serializer::decode);

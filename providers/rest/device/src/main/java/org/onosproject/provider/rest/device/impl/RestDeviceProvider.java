@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2016-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,8 @@ import org.onlab.util.SharedScheduledExecutorService;
 import org.onlab.util.SharedScheduledExecutors;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
-import org.onosproject.incubator.net.config.basics.ConfigException;
+import org.onosproject.net.behaviour.PortAdmin;
+import org.onosproject.net.config.ConfigException;
 import org.onosproject.net.AnnotationKeys;
 import org.onosproject.net.DefaultAnnotations;
 import org.onosproject.net.Device;
@@ -80,6 +81,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.onlab.util.Tools.groupedThreads;
@@ -102,6 +104,7 @@ public class RestDeviceProvider extends AbstractProvider
     private static final String UNKNOWN = "unknown";
     private static final int REST_TIMEOUT_SEC = 5;
     private static final int DEFAULT_POLL_FREQUENCY_SECONDS = 30;
+    private static final int EXECUTOR_THREAD_POOL_SIZE = 8;
     private final Logger log = getLogger(getClass());
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
@@ -158,7 +161,9 @@ public class RestDeviceProvider extends AbstractProvider
         appId = coreService.registerApplication(APP_NAME);
         providerService = providerRegistry.register(this);
         factories.forEach(cfgService::registerConfigFactory);
-        executor = Executors.newFixedThreadPool(5, groupedThreads("onos/restsbprovider", "device-installer-%d", log));
+        executor = Executors.newFixedThreadPool(
+            EXECUTOR_THREAD_POOL_SIZE, groupedThreads("onos/restsbprovider", "device-installer-%d", log)
+        );
         cfgService.addListener(configListener);
         executor.execute(RestDeviceProvider.this::createAndConnectDevices);
         executor.execute(RestDeviceProvider.this::createDevices);
@@ -492,6 +497,29 @@ public class RestDeviceProvider extends AbstractProvider
     @Override
     public void changePortState(DeviceId deviceId, PortNumber portNumber,
                                 boolean enable) {
-        // TODO if required
+        Device device = deviceService.getDevice(deviceId);
+        if (device != null) {
+            if (device.is(PortAdmin.class)) {
+                PortAdmin portAdmin = device.as(PortAdmin.class);
+                CompletableFuture<Boolean> modified;
+                if (enable) {
+                    modified = portAdmin.enable(portNumber);
+                } else {
+                    modified = portAdmin.disable(portNumber);
+                }
+                modified.thenAcceptAsync(result -> {
+                    if (!result) {
+                        log.warn("Device {} port {} state can't be changed to {}",
+                                 deviceId, portNumber, enable);
+                    }
+                });
+
+            } else {
+                log.warn("Device {} does not support PortAdmin behavior", deviceId);
+            }
+        } else {
+            log.warn("unable to get the device {}, port {} state can't be changed to {}",
+                     deviceId, portNumber, enable);
+        }
     }
 }

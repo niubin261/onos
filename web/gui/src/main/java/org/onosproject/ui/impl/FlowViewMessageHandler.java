@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-present Open Networking Laboratory
+ * Copyright 2015-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import org.onosproject.ui.UiMessageHandler;
 import org.onosproject.ui.table.CellFormatter;
 import org.onosproject.ui.table.TableModel;
 import org.onosproject.ui.table.TableRequestHandler;
+import org.onosproject.ui.table.cell.DefaultCellFormatter;
 import org.onosproject.ui.table.cell.EnumFormatter;
 import org.onosproject.ui.table.cell.HexLongFormatter;
 import org.onosproject.ui.table.cell.NumberFormatter;
@@ -69,7 +70,7 @@ public class FlowViewMessageHandler extends UiMessageHandler {
     private static final String APP_ID = "appId";
     private static final String APP_NAME = "appName";
     private static final String GROUP_ID = "groupId";
-    private static final String TABLE_ID = "tableId";
+    private static final String TABLE_NAME = "tableName";
     private static final String PRIORITY = "priority";
     private static final String SELECTOR_C = "selector_c"; // for table column
     private static final String SELECTOR = "selector";
@@ -94,6 +95,14 @@ public class FlowViewMessageHandler extends UiMessageHandler {
 
     private static final String ONOS_PREFIX = "org.onosproject.";
     private static final String ONOS_MARKER = "*";
+
+    // json structure keys
+    private static final String IMMED = "immed";
+    private static final String DEFER = "defer";
+    private static final String METER = "meter";
+    private static final String TABLE = "table";
+    private static final String META = "meta";
+    private static final String CLEARDEF = "clearDef";
 
     // TODO: replace the use of the following constants with localized text
     private static final String MSG_NO_SELECTOR =
@@ -120,7 +129,7 @@ public class FlowViewMessageHandler extends UiMessageHandler {
             PACKETS,
             DURATION,
             PRIORITY,
-            TABLE_ID,
+            TABLE_NAME,
             APP_ID,
             APP_NAME,
 
@@ -198,6 +207,7 @@ public class FlowViewMessageHandler extends UiMessageHandler {
             tm.setFormatter(SELECTOR, new SelectorFormatter());
             tm.setFormatter(TREATMENT_C, new TreatmentShortFormatter());
             tm.setFormatter(TREATMENT, new TreatmentFormatter());
+            tm.setFormatter(TABLE_NAME, DefaultCellFormatter.INSTANCE);
             return tm;
         }
 
@@ -223,7 +233,7 @@ public class FlowViewMessageHandler extends UiMessageHandler {
                     .cell(PACKETS, flow.packets())
                     .cell(DURATION, flow.life())
                     .cell(PRIORITY, flow.priority())
-                    .cell(TABLE_ID, flow.tableId())
+                    .cell(TABLE_NAME, flow.table())
                     .cell(APP_ID, flow.appId())
                     .cell(APP_NAME, makeAppName(flow.appId(), lookup))
 
@@ -344,7 +354,7 @@ public class FlowViewMessageHandler extends UiMessageHandler {
             if (!instructs.isEmpty()) {
                 sb.append(type).append(SQUARE_O);
                 for (Instruction i : instructs) {
-                    sb.append(i).append(COMMA);
+                    sb.append(renderInstructionForDisplay(i)).append(COMMA);
                 }
                 removeTrailingComma(sb);
                 sb.append(SQUARE_C).append(COMMA);
@@ -399,7 +409,7 @@ public class FlowViewMessageHandler extends UiMessageHandler {
                 data.put(DURATION, NumberFormatter.INTEGER.format(flow.life()));
 
                 data.put(FLOW_PRIORITY, flow.priority());
-                data.put(TABLE_ID, flow.tableId());
+                data.put(TABLE_NAME, flow.table().toString());
                 data.put(APP_ID, flow.appId());
                 // NOTE: horribly inefficient... make a map and retrieve a single value...
                 data.put(APP_NAME, makeAppName(flow.appId(), appShortMap()));
@@ -456,17 +466,25 @@ public class FlowViewMessageHandler extends UiMessageHandler {
         private ArrayNode jsonInstrList(List<Instruction> instructions) {
             ArrayNode array = arrayNode();
             for (Instruction i : instructions) {
-                array.add(i.toString());
+                array.add(renderInstructionForDisplay(i));
             }
             return array;
         }
     }
 
-    // json structure keys
-    private static final String IMMED = "immed";
-    private static final String DEFER = "defer";
-    private static final String METER = "meter";
-    private static final String TABLE = "table";
-    private static final String META = "meta";
-    private static final String CLEARDEF = "clearDef";
+    // package private to allow unit test access...
+    String renderInstructionForDisplay(Instruction instr) {
+
+        // special handling for Extension Instruction Wrappers...
+        if (instr instanceof Instructions.ExtensionInstructionWrapper) {
+            Instructions.ExtensionInstructionWrapper wrap =
+                    (Instructions.ExtensionInstructionWrapper) instr;
+            return wrap.type() + COLON + wrap.extensionInstruction();
+        }
+
+        // special handling of other instruction classes could be placed here
+
+        // default to the natural string representation otherwise
+        return instr.toString();
+    }
 }

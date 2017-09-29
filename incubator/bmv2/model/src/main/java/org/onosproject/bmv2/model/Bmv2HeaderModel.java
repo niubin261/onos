@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,6 +60,7 @@ public final class Bmv2HeaderModel implements PiHeaderModel {
      *
      * @return name of this model
      */
+    @Override
     public String name() {
         return name;
     }

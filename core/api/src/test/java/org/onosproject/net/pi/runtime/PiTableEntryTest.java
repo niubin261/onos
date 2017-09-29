@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,29 +27,27 @@ import java.util.Map;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.onlab.junit.ImmutableClassChecker.assertThatClassIsImmutable;
-import static org.onosproject.net.pi.runtime.PiConstantsTest.DROP;
-import static org.onosproject.net.pi.runtime.PiConstantsTest.DST_ADDR;
-import static org.onosproject.net.pi.runtime.PiConstantsTest.IPV4_HEADER_NAME;
+import static org.onosproject.net.pi.runtime.PiConstantsTest.*;
 
 /**
  * Unit tests for PiTableEntry class.
  */
 public class PiTableEntryTest {
-    final PiTableEntry piTableEntry1 = PiTableEntry.builder()
+    private final PiTableEntry piTableEntry1 = PiTableEntry.builder()
             .forTable(PiTableId.of("Table10"))
             .withCookie(0xac)
             .withPriority(10)
             .withAction(PiAction.builder().withId(PiActionId.of(DROP)).build())
             .withTimeout(100)
             .build();
-    final PiTableEntry sameAsPiTableEntry1 = PiTableEntry.builder()
+    private final PiTableEntry sameAsPiTableEntry1 = PiTableEntry.builder()
             .forTable(PiTableId.of("Table10"))
             .withCookie(0xac)
             .withPriority(10)
             .withAction(PiAction.builder().withId(PiActionId.of(DROP)).build())
             .withTimeout(100)
             .build();
-    final PiTableEntry piTableEntry2 = PiTableEntry.builder()
+    private final PiTableEntry piTableEntry2 = PiTableEntry.builder()
             .forTable(PiTableId.of("Table20"))
             .withCookie(0xac)
             .withPriority(10)
@@ -77,6 +75,16 @@ public class PiTableEntryTest {
     }
 
     /**
+     * Tests equality of the empty table entry.
+     */
+    @Test
+    public void testEmptyEquals() {
+        new EqualsTester()
+                .addEqualityGroup(PiTableEntry.EMTPY, PiTableEntry.EMTPY)
+                .testEquals();
+    }
+
+    /**
      * Tests creation of a DefaultFlowRule using a FlowRule constructor.
      */
     @Test
@@ -93,7 +101,9 @@ public class PiTableEntryTest {
         fieldMatches.put(piHeaderFieldId, piFieldMatch);
         final PiTableEntry piTableEntry = PiTableEntry.builder()
                 .forTable(piTableId)
-                .withFieldMatches(fieldMatches.values())
+                .withMatchKey(PiMatchKey.builder()
+                                      .addFieldMatches(fieldMatches.values())
+                                      .build())
                 .withAction(piAction)
                 .withCookie(cookie)
                 .withPriority(priority)
@@ -105,7 +115,7 @@ public class PiTableEntryTest {
         assertThat(piTableEntry.priority().get(), is(priority));
         assertThat(piTableEntry.timeout().get(), is(timeout));
         assertThat("Incorrect match param value",
-                CollectionUtils.isEqualCollection(piTableEntry.fieldMatches(), fieldMatches.values()));
+                   CollectionUtils.isEqualCollection(piTableEntry.matchKey().fieldMatches(), fieldMatches.values()));
         assertThat(piTableEntry.action(), is(piAction));
     }
 }

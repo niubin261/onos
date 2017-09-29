@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-present Open Networking Laboratory
+ * Copyright 2015-present Open Networking Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,6 +118,7 @@ public class UiExtensionManager
             // view component localization
             "core.view.App",
             "core.view.Cluster",
+            "core.view.Topo",
 
             // TODO: More to come...
     };
@@ -193,6 +194,7 @@ public class UiExtensionManager
                 new UiViewHidden("port"),
                 new UiViewHidden("group"),
                 new UiViewHidden("meter"),
+                new UiViewHidden("pipeconf"),
 
                 mkView(NETWORK, "link", "nav_links"),
                 mkView(NETWORK, "host", "nav_hosts"),
@@ -220,7 +222,8 @@ public class UiExtensionManager
                         new ClusterViewMessageHandler(),
                         new ProcessorViewMessageHandler(),
                         new TunnelViewMessageHandler(),
-                        new PartitionViewMessageHandler()
+                        new PartitionViewMessageHandler(),
+                        new PipeconfViewMessageHandler()
                 );
 
         UiTopoOverlayFactory topoOverlayFactory =
