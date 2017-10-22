@@ -39,10 +39,10 @@ import org.onosproject.net.pi.runtime.PiTableId;
 import org.onosproject.net.pi.runtime.PiTernaryFieldMatch;
 import org.onosproject.net.pi.runtime.PiValidFieldMatch;
 import org.slf4j.Logger;
+import p4.P4RuntimeOuterClass.Action;
 import p4.P4RuntimeOuterClass.FieldMatch;
 import p4.P4RuntimeOuterClass.TableAction;
 import p4.P4RuntimeOuterClass.TableEntry;
-import p4.P4RuntimeOuterClass.Action;
 import p4.config.P4InfoOuterClass;
 
 import java.util.Collection;
@@ -61,7 +61,6 @@ import static org.slf4j.LoggerFactory.getLogger;
 final class TableEntryEncoder {
     private static final Logger log = getLogger(TableEntryEncoder.class);
 
-    private static final String HEADER_PREFIX = "hdr.";
     private static final String VALUE_OF_PREFIX = "value of ";
     private static final String MASK_OF_PREFIX = "mask of ";
     private static final String HIGH_RANGE_VALUE_OF_PREFIX = "high range value of ";
@@ -196,7 +195,6 @@ final class TableEntryEncoder {
         P4InfoBrowser browser = PipeconfHelper.getP4InfoBrowser(pipeconf);
         TableEntry.Builder tableEntryMsgBuilder = TableEntry.newBuilder();
 
-        //FIXME this throws some kind of NPE
         P4InfoOuterClass.Table tableInfo = browser.tables().getByName(tableId.id());
 
         // Table id.
@@ -215,7 +213,6 @@ final class TableEntryEncoder {
 
         TableEntry.Builder tableEntryMsgBuilder = TableEntry.newBuilder();
 
-        //FIXME this throws some kind of NPE
         P4InfoOuterClass.Table tableInfo = browser.tables().getByName(piTableEntry.table().id());
 
         // Table id.
@@ -282,7 +279,7 @@ final class TableEntryEncoder {
         // FIXME: check how field names for stacked headers are constructed in P4Runtime.
         String fieldName = piFieldMatch.fieldId().id();
         int tableId = tableInfo.getPreamble().getId();
-        P4InfoOuterClass.MatchField matchFieldInfo = browser.matchFields(tableId).getByNameOrAlias(fieldName);
+        P4InfoOuterClass.MatchField matchFieldInfo = browser.matchFields(tableId).getByName(fieldName);
         String entityName = format("field match '%s' of table '%s'",
                                    matchFieldInfo.getName(), tableInfo.getPreamble().getName());
         int fieldId = matchFieldInfo.getId();
@@ -384,9 +381,12 @@ final class TableEntryEncoder {
 
         int tableId = tableInfo.getPreamble().getId();
         String fieldMatchName = browser.matchFields(tableId).getById(fieldMatchMsg.getFieldId()).getName();
-        if (fieldMatchName.startsWith(HEADER_PREFIX)) {
-            fieldMatchName = fieldMatchName.substring(HEADER_PREFIX.length());
-        }
+
+        // FIXME: nasty hack needed to provide compatibility with BMv2-based pipeline models.
+        // Indeed in the BMv2 JSON header fields have format like "ethernet.srd_addr", while in P4Info
+        // the same will be "hdr.ethernet.srd_addr".
+        // To be removed when ONOS-7066 will be implemented.
+        fieldMatchName = P4InfoBrowser.extractMatchFieldSimpleName(fieldMatchName);
 
         // FIXME: Add support for decoding of stacked header names.
         String[] pieces = fieldMatchName.split("\\.");

@@ -113,6 +113,7 @@ ONOS_DRIVERS = [
     '//drivers/bmv2:onos-drivers-bmv2-oar',
     '//drivers/hp:onos-drivers-hp-oar',
     '//drivers/p4runtime:onos-drivers-p4runtime-oar',
+    '//drivers/polatis/netconf:onos-drivers-polatis-netconf-oar',
 ]
 
 ONOS_PROVIDERS = [
@@ -228,9 +229,12 @@ ONOS_APPS = [
     '//apps/route-service:onos-apps-route-service-oar',
     '//apps/evpn-route-service:onos-apps-evpn-route-service-oar',
     '//incubator/protobuf/registry:onos-incubator-protobuf-registry-oar',
+    '//incubator/protobuf/services/nb:onos-incubator-protobuf-services-nb-oar',
     '//apps/openstacknetworkingui:onos-apps-openstacknetworkingui-oar',
     '//apps/p4-tutorial/pipeconf:onos-apps-p4-tutorial-pipeconf-oar',
     '//apps/p4-tutorial/icmpdropper:onos-apps-p4-tutorial-icmpdropper-oar',
+    '//apps/cfm:onos-apps-cfm-oar',
+    '//apps/routeradvertisement:onos-apps-routeradvertisement-oar',
 ]
 
 PROTOCOL_APPS = [
@@ -239,11 +243,13 @@ PROTOCOL_APPS = [
 ]
 
 MODELS = [
+    '//models/common:onos-models-common-oar',
     '//models/huawei:onos-models-huawei-oar',
     '//models/openconfig:onos-models-openconfig-oar',
     '//models/openroadm:onos-models-openroadm-oar',
     '//models/l3vpn:onos-models-l3vpn-oar',
-    '//models/microsemi:onos-models-microsemi-oar'
+    '//models/microsemi:onos-models-microsemi-oar',
+    '//models/polatis:onos-models-polatis-oar',
 ]
 
 APP_JARS = [

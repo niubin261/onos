@@ -155,8 +155,12 @@ public class ConsistentDeviceMastershipStore
 
         String leadershipTopic = createDeviceMastershipTopic(deviceId);
         Leadership leadership = leadershipService.runForLeadership(leadershipTopic);
-        return CompletableFuture.completedFuture(localNodeId.equals(leadership.leaderNodeId())
-                ? MastershipRole.MASTER : MastershipRole.STANDBY);
+        NodeId leader = leadership == null ? null : leadership.leaderNodeId();
+        List<NodeId> candidates = leadership == null ?
+                ImmutableList.of() : ImmutableList.copyOf(leadership.candidates());
+        MastershipRole role = Objects.equal(localNodeId, leader) ?
+                MastershipRole.MASTER : candidates.contains(localNodeId) ? MastershipRole.STANDBY : MastershipRole.NONE;
+        return CompletableFuture.completedFuture(role);
     }
 
     @Override

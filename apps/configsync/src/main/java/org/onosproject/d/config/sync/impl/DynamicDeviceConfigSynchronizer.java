@@ -165,12 +165,14 @@ public class DynamicDeviceConfigSynchronizer
     void processEventNonBatch(DynamicConfigEvent event) {
         ResourceId path = event.subject();
         if (isUnderDeviceRootNode(path)) {
+            log.trace("processing event:{}", event);
 
             DeviceId deviceId = DeviceResourceIds.toDeviceId(path);
             ResourceId deviceRootPath = DeviceResourceIds.toResourceId(deviceId);
 
-            ResourceId relPath = ResourceIds.relativize(deviceRootPath, path);
-            // FIXME figure out how to express give me everything Filter
+            ResourceId absPath = ResourceIds.concat(ResourceIds.ROOT_ID, path);
+            ResourceId relPath = ResourceIds.relativize(deviceRootPath, absPath);
+            // give me everything Filter
             Filter giveMeEverything = Filter.builder().build();
 
             DataNode node = dynConfigService.readNode(path, giveMeEverything);
@@ -206,6 +208,8 @@ public class DynamicDeviceConfigSynchronizer
                     log.error("Request to {} failed {}", deviceId, response, e);
                 }
             });
+        } else {
+            log.warn("Ignored event's ResourceId: {}", event.subject());
         }
     }
 

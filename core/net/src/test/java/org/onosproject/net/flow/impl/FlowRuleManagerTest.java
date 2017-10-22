@@ -51,7 +51,7 @@ import org.onosproject.net.flow.DefaultFlowRule;
 import org.onosproject.net.flow.FlowEntry;
 import org.onosproject.net.flow.FlowEntry.FlowEntryState;
 import org.onosproject.net.flow.FlowRule;
-import org.onosproject.net.flow.FlowRuleBatchOperation;
+import org.onosproject.net.flow.oldbatch.FlowRuleBatchOperation;
 import org.onosproject.net.flow.FlowRuleEvent;
 import org.onosproject.net.flow.FlowRuleListener;
 import org.onosproject.net.flow.FlowRuleProgrammable;
@@ -660,6 +660,11 @@ public class FlowRuleManagerTest {
 
         @Override
         public MetadataInstruction writeMetadata() {
+            return null;
+        }
+
+        @Override
+        public Instructions.StatTriggerInstruction statTrigger() {
             return null;
         }
 

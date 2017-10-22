@@ -7,7 +7,6 @@ SRC_DEPS = [
     '//utils/rest:onlab-rest',
     '//lib:joda-time',
     '//lib:floodlightpof',
-
 ]
 
 TEST_DEPS = [

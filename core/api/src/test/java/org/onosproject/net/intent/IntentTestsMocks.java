@@ -118,6 +118,11 @@ public class IntentTestsMocks {
         }
 
         @Override
+        public Instructions.StatTriggerInstruction statTrigger() {
+            return null;
+        }
+
+        @Override
         public Instructions.MeterInstruction metered() {
             return null;
         }

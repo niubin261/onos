@@ -33,9 +33,7 @@ import java.util.stream.Collectors;
 import static org.onlab.util.ImmutableByteSequence.copyFrom;
 import static org.onosproject.p4runtime.ctl.P4InfoBrowser.NotFoundException;
 import static org.slf4j.LoggerFactory.getLogger;
-import static p4.P4RuntimeOuterClass.PacketIn;
-import static p4.P4RuntimeOuterClass.PacketMetadata;
-import static p4.P4RuntimeOuterClass.PacketOut;
+import static p4.P4RuntimeOuterClass.*;
 
 /**
  * Encoder of packet metadata, from ONOS Pi* format, to P4Runtime protobuf messages, and vice versa.

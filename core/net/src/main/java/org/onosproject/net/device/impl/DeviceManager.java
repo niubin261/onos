@@ -25,7 +25,6 @@ import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
-import org.joda.time.DateTime;
 import org.onlab.util.KryoNamespace;
 import org.onlab.util.Tools;
 import org.onosproject.cluster.ClusterService;
@@ -74,6 +73,7 @@ import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.service.Serializer;
 import org.slf4j.Logger;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -180,9 +180,9 @@ public class DeviceManager
      */
     private class LocalStatus {
         boolean connected;
-        DateTime dateTime;
+        Instant dateTime;
 
-        public LocalStatus(boolean b, DateTime now) {
+        public LocalStatus(boolean b, Instant now) {
             connected = b;
             dateTime = now;
         }
@@ -333,7 +333,7 @@ public class DeviceManager
         if (ls == null) {
             return "No Record";
         }
-        String timeAgo = Tools.timeAgo(ls.dateTime.getMillis());
+        String timeAgo = Tools.timeAgo(ls.dateTime.toEpochMilli());
         return (ls.connected) ? "connected " + timeAgo : "disconnected " + timeAgo;
     }
 
@@ -463,7 +463,7 @@ public class DeviceManager
 
             // isReachable but was not MASTER or STANDBY, get a role and apply
             // Note: NONE triggers request to MastershipService
-            reassertRole(deviceId, NONE);
+            reassertRole(deviceId, mastershipService.getLocalRole(deviceId));
         }
     }
 
@@ -508,7 +508,7 @@ public class DeviceManager
             checkNotNull(deviceDescription, DEVICE_DESCRIPTION_NULL);
             checkValidity();
 
-            deviceLocalStatus.put(deviceId, new LocalStatus(true, DateTime.now()));
+            deviceLocalStatus.put(deviceId, new LocalStatus(true, Instant.now()));
 
             BasicDeviceConfig cfg = networkConfigService.getConfig(deviceId, BasicDeviceConfig.class);
             if (!isAllowed(cfg)) {
@@ -564,7 +564,7 @@ public class DeviceManager
         public void deviceDisconnected(DeviceId deviceId) {
             checkNotNull(deviceId, DEVICE_ID_NULL);
             checkValidity();
-            deviceLocalStatus.put(deviceId, new LocalStatus(false, DateTime.now()));
+            deviceLocalStatus.put(deviceId, new LocalStatus(false, Instant.now()));
             log.info("Device {} disconnected from this node", deviceId);
 
             List<PortDescription> descs = store.getPortDescriptions(provider().id(), deviceId)
@@ -819,49 +819,32 @@ public class DeviceManager
     private void reassertRole(final DeviceId did,
                               final MastershipRole nextRole) {
 
-        MastershipRole myNextRole = nextRole;
-        if (myNextRole == NONE) {
-            try {
-                mastershipService.requestRoleFor(did).get();
-                MastershipTerm term = termService.getMastershipTerm(did);
-                if (term != null && localNodeId.equals(term.master())) {
-                    myNextRole = MASTER;
-                } else {
-                    myNextRole = STANDBY;
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.error("Interrupted waiting for Mastership", e);
-            } catch (ExecutionException e) {
-                log.error("Encountered an error waiting for Mastership", e);
-            }
-        }
-
-        switch (myNextRole) {
+        switch (nextRole) {
             case MASTER:
                 final Device device = getDevice(did);
                 if ((device != null) && !isAvailable(did)) {
                     store.markOnline(did);
                 }
                 // TODO: should apply role only if there is mismatch
-                log.debug("Applying role {} to {}", myNextRole, did);
+                log.debug("Applying role {} to {}", nextRole, did);
                 if (!applyRoleAndProbe(did, MASTER)) {
-                    log.warn("Unsuccessful applying role {} to {}", myNextRole, did);
+                    log.warn("Unsuccessful applying role {} to {}", nextRole, did);
                     // immediately failed to apply role
                     mastershipService.relinquishMastership(did);
                     // FIXME disconnect?
                 }
                 break;
             case STANDBY:
-                log.debug("Applying role {} to {}", myNextRole, did);
+                log.debug("Applying role {} to {}", nextRole, did);
                 if (!applyRoleAndProbe(did, STANDBY)) {
-                    log.warn("Unsuccessful applying role {} to {}", myNextRole, did);
+                    log.warn("Unsuccessful applying role {} to {}", nextRole, did);
                     // immediately failed to apply role
                     mastershipService.relinquishMastership(did);
                     // FIXME disconnect?
                 }
                 break;
             case NONE:
+                break;
             default:
                 // should never reach here
                 log.error("You didn't see anything. I did not exist.");

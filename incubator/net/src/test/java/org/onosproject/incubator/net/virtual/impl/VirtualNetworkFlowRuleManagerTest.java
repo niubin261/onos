@@ -49,7 +49,7 @@ import org.onosproject.net.flow.DefaultFlowEntry;
 import org.onosproject.net.flow.DefaultFlowRule;
 import org.onosproject.net.flow.FlowEntry;
 import org.onosproject.net.flow.FlowRule;
-import org.onosproject.net.flow.FlowRuleBatchOperation;
+import org.onosproject.net.flow.oldbatch.FlowRuleBatchOperation;
 import org.onosproject.net.flow.FlowRuleEvent;
 import org.onosproject.net.flow.FlowRuleListener;
 import org.onosproject.net.flow.FlowRuleService;
@@ -461,6 +461,11 @@ public class VirtualNetworkFlowRuleManagerTest extends VirtualNetworkTestUtil {
 
         @Override
         public Instructions.MetadataInstruction writeMetadata() {
+            return null;
+        }
+
+        @Override
+        public Instructions.StatTriggerInstruction statTrigger() {
             return null;
         }
 

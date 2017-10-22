@@ -15,8 +15,16 @@
  */
 package org.onosproject.cluster.impl;
 
-import com.google.common.collect.Sets;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
+import com.google.common.collect.Sets;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -24,7 +32,6 @@ import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.karaf.system.SystemService;
-import org.joda.time.DateTime;
 import org.onlab.packet.IpAddress;
 import org.onlab.util.Tools;
 import org.onosproject.cluster.ClusterAdminService;
@@ -47,14 +54,6 @@ import org.onosproject.cluster.PartitionId;
 import org.onosproject.core.Version;
 import org.onosproject.event.AbstractListenerManager;
 import org.slf4j.Logger;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -148,9 +147,9 @@ public class ClusterManager
     }
 
     @Override
-    public DateTime getLastUpdated(NodeId nodeId) {
+    public Instant getLastUpdatedInstant(NodeId nodeId) {
         checkPermission(CLUSTER_READ);
-        return store.getLastUpdated(nodeId);
+        return store.getLastUpdatedInstant(nodeId);
     }
 
     @Override

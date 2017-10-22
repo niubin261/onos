@@ -15,6 +15,8 @@
  */
 package org.onosproject.cluster;
 
+import java.time.Instant;
+import java.util.Optional;
 import java.util.Set;
 
 import org.joda.time.DateTime;
@@ -22,11 +24,9 @@ import org.onosproject.core.Version;
 import org.onosproject.event.ListenerService;
 
 /**
- * Service for obtaining information about the individual nodes within
- * the controller cluster.
+ * Service for obtaining information about the individual nodes within the controller cluster.
  */
-public interface ClusterService
-    extends ListenerService<ClusterEvent, ClusterEventListener> {
+public interface ClusterService extends ListenerService<ClusterEvent, ClusterEventListener> {
 
     /**
      * Returns the local controller node.
@@ -74,6 +74,27 @@ public interface ClusterService
      * @param nodeId controller node identifier
      * @return system time when the availability state was last updated.
      */
-    DateTime getLastUpdated(NodeId nodeId);
+    default Instant getLastUpdatedInstant(NodeId nodeId) {
+        return Optional.ofNullable(getLastUpdated(nodeId))
+                    .map(DateTime::getMillis)
+                    .map(Instant::ofEpochMilli)
+                    .orElse(null);
+    }
+
+    /**
+     * Returns the system time when the availability state was last updated.
+     *
+     * @param nodeId controller node identifier
+     * @return system time when the availability state was last updated.
+     *
+     * @deprecated in 1.12.0
+     */
+    @Deprecated
+    default DateTime getLastUpdated(NodeId nodeId) {
+        return Optional.ofNullable(getLastUpdatedInstant(nodeId))
+                .map(Instant::toEpochMilli)
+                .map(DateTime::new)
+                .orElse(null);
+    }
 
 }

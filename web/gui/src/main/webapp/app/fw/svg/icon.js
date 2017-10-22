@@ -58,6 +58,11 @@
         devIcon_SWITCH: 'switch',
         devIcon_ROADM: 'roadm',
         devIcon_OTN: 'otn',
+
+        portIcon_DEFAULT: 'm_ports',
+
+        meter: 'meterTable', // TODO: m_meter icon?
+
         deviceTable: 'switch',
         flowTable: 'flowTable',
         portTable: 'portTable',

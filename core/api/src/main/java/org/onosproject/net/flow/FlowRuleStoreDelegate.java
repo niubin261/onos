@@ -15,6 +15,7 @@
  */
 package org.onosproject.net.flow;
 
+import org.onosproject.net.flow.oldbatch.FlowRuleBatchEvent;
 import org.onosproject.store.StoreDelegate;
 
 /**

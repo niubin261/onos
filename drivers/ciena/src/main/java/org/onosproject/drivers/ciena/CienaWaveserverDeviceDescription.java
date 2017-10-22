@@ -41,7 +41,6 @@ import org.onosproject.protocol.rest.RestSBController;
 import org.slf4j.Logger;
 
 import java.util.List;
-import java.util.ArrayList;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.onosproject.net.optical.device.OchPortHelper.ochPortDescription;
@@ -51,6 +50,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 /**
  * Discovers the ports from a Ciena WaveServer Rest device.
  */
+//TODO: Use CienaRestDevice
 public class CienaWaveserverDeviceDescription extends AbstractHandlerBehaviour
         implements DeviceDescriptionDiscovery {
 
@@ -69,8 +69,6 @@ public class CienaWaveserverDeviceDescription extends AbstractHandlerBehaviour
 
     private static final String PORT_REQUEST =
             "ciena-ws-ptp:ws-ptps?config=true&format=xml&depth=unbounded";
-    private static final ArrayList<String> LINESIDE_PORT_ID = Lists.newArrayList(
-            "4", "48");
 
     @Override
     public DeviceDescription discoverDeviceDetails() {
@@ -127,22 +125,16 @@ public class CienaWaveserverDeviceDescription extends AbstractHandlerBehaviour
         portsConfig.forEach(sub -> {
             String portId = sub.getString(PORT_ID);
             DefaultAnnotations.Builder annotations = DefaultAnnotations.builder();
-            if (LINESIDE_PORT_ID.contains(portId)) {
-                // TX/OUT port
+            if (CienaRestDevice.getLinesidePortId().contains(portId)) {
                 annotations.set(AnnotationKeys.CHANNEL_ID, sub.getString(CHANNEL_ID));
-                annotations.set(AnnotationKeys.PORT_NAME, portId + " TX");
+                // TX/OUT and RX/IN ports
+                annotations.set(AnnotationKeys.PORT_OUT, sub.getString(PORT_OUT));
+                annotations.set(AnnotationKeys.PORT_IN, sub.getString(PORT_IN));
                 ports.add(parseWaveServerCienaOchPorts(
-                        sub.getLong(PORT_OUT),
+                        Long.valueOf(portId),
                         sub,
                         annotations.build()));
 
-                // RX/IN port
-                annotations.set(AnnotationKeys.PORT_NAME, portId + " RX");
-                annotations.set(AnnotationKeys.CHANNEL_ID, sub.getString(CHANNEL_ID));
-                ports.add(parseWaveServerCienaOchPorts(
-                        sub.getLong(PORT_IN),
-                        sub,
-                        annotations.build()));
             } else if (!portId.equals("5") && !portId.equals("49")) {
                 DefaultAnnotations.builder()
                         .set(AnnotationKeys.PORT_NAME, portId);
@@ -177,8 +169,8 @@ public class CienaWaveserverDeviceDescription extends AbstractHandlerBehaviour
 
         //Working in Ghz //(Nominal central frequency - 193.1)/channelSpacing = spacingMultiplier
         final int baseFrequency = 193100;
-        int spacingMult = (int) (toGbps(((int) config.getDouble(frequency) -
-                baseFrequency)) / toGbpsFromHz(chSpacing.frequency().asHz())); //FIXME is there a better way ?
+        int spacingMult = ((int) (toGbps(((int) config.getDouble(frequency) -
+                baseFrequency)) / toGbpsFromHz(chSpacing.frequency().asHz()))); //FIXME is there a better way ?
 
         return ochPortDescription(PortNumber.portNumber(portNumber), isEnabled, OduSignalType.ODU4, isTunable,
                                   new OchSignal(gridType, chSpacing, spacingMult, 1), annotations);

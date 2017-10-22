@@ -59,6 +59,7 @@ public final class InstructionCodec extends JsonCodec<Instruction> {
     protected static final String TRIBUTARY_SLOT_BITMAP = "tributarySlotBitmap";
     protected static final String EXTENSION = "extension";
     protected static final String DEVICE_ID = "deviceId";
+
     protected static final String POF_INSTRUCTION = "pofInstruction";
     protected static final String ACTIONS = "actions";
     protected static final String POF_ACTION = "pofAction";
@@ -95,6 +96,14 @@ public final class InstructionCodec extends JsonCodec<Instruction> {
     protected static final String INDEX_TYPE = "indexType";
     protected static final String INDEX_VALUE = "indexValue";
     protected static final String INDEX_FIELD = "indexField";
+
+    protected static final String STAT_TRIGGER_FLAG = "statTriggerFlag";
+    protected static final String STAT_THRESHOLDS = "statThreshold";
+    protected static final String STAT_BYTE_COUNT = "byteCount";
+    protected static final String STAT_PACKET_COUNT = "packetCount";
+    protected static final String STAT_DURATION = "duration";
+
+
     protected static final String MISSING_MEMBER_MESSAGE =
             " member is required in Instruction";
     protected static final String ERROR_MESSAGE =

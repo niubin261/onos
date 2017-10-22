@@ -84,13 +84,18 @@
         closeBtn.on('click', onClose || function () {});
     }
 
-    function addHeading(icon) {
+    function addHeading(icon, makeEditable) {
         top.append('div').classed('iconDiv ' + icon, true);
-        new EditableTextComponent(top.append('h2'), {
-            scope: options.scope,
-            nameChangeRequest: options.nameChangeRequest,
-            keyBindings: options.keyBindings,
-        });
+
+        if (makeEditable) {
+            new EditableTextComponent(top.append('h2'), {
+                scope: options.scope,
+                nameChangeRequest: options.nameChangeRequest,
+                keyBindings: options.keyBindings,
+            });
+        } else {
+            top.append('h2');   // note: title is inserted later
+        }
     }
 
     function addTable(parent, className) {
@@ -98,7 +103,6 @@
     }
 
     function addProp(tbody, key, value) {
-        console.log(tbody);
         var tr = tbody.append('tr');
 
         function addCell(cls, txt, width) {

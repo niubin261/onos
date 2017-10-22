@@ -106,7 +106,12 @@ public interface Instruction {
         /**
          * Signifies that an extension instruction will be used.
          */
-        EXTENSION
+        EXTENSION,
+
+        /**
+         * Signifies that statistics will be triggered.
+         */
+        STAT_TRIGGER
     }
 
     /**

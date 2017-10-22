@@ -15,9 +15,9 @@
  */
 package org.onosproject.cluster;
 
-import org.onlab.packet.IpAddress;
-
 import java.util.Set;
+
+import org.onlab.packet.IpAddress;
 
 /**
  * Service for administering the cluster node membership.

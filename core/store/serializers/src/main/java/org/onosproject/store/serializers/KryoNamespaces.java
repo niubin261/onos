@@ -100,16 +100,18 @@ import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.FlowEntry;
 import org.onosproject.net.flow.FlowId;
 import org.onosproject.net.flow.FlowRule;
-import org.onosproject.net.flow.FlowRuleBatchEntry;
-import org.onosproject.net.flow.FlowRuleBatchEvent;
-import org.onosproject.net.flow.FlowRuleBatchOperation;
-import org.onosproject.net.flow.FlowRuleBatchRequest;
 import org.onosproject.net.flow.FlowRuleEvent;
 import org.onosproject.net.flow.FlowRuleExtPayLoad;
 import org.onosproject.net.flow.IndexTableId;
+import org.onosproject.net.flow.StatTriggerField;
+import org.onosproject.net.flow.StatTriggerFlag;
 import org.onosproject.net.flow.StoredFlowEntry;
 import org.onosproject.net.flow.TableId;
 import org.onosproject.net.flow.TableStatisticsEntry;
+import org.onosproject.net.flow.oldbatch.FlowRuleBatchEntry;
+import org.onosproject.net.flow.oldbatch.FlowRuleBatchEvent;
+import org.onosproject.net.flow.oldbatch.FlowRuleBatchOperation;
+import org.onosproject.net.flow.oldbatch.FlowRuleBatchRequest;
 import org.onosproject.net.flow.criteria.ArpHaCriterion;
 import org.onosproject.net.flow.criteria.ArpOpCriterion;
 import org.onosproject.net.flow.criteria.ArpPaCriterion;
@@ -213,6 +215,7 @@ import org.onosproject.net.pi.runtime.PiActionParamId;
 import org.onosproject.net.pi.runtime.PiExactFieldMatch;
 import org.onosproject.net.pi.runtime.PiFieldMatch;
 import org.onosproject.net.pi.runtime.PiActionProfileId;
+import org.onosproject.net.pi.runtime.PiGroupKey;
 import org.onosproject.net.pi.runtime.PiHeaderFieldId;
 import org.onosproject.net.pi.runtime.PiLpmFieldMatch;
 import org.onosproject.net.pi.runtime.PiMatchKey;
@@ -249,6 +252,7 @@ import org.onosproject.store.service.TransactionLog;
 import org.onosproject.store.service.Versioned;
 import org.onosproject.store.service.WorkQueueStats;
 import org.onosproject.ui.model.topo.UiTopoLayoutId;
+import org.onosproject.upgrade.Upgrade;
 
 import org.onosproject.net.flow.instructions.PofInstruction;
 import org.onosproject.net.flow.criteria.PofCriterion;
@@ -369,6 +373,9 @@ public final class KryoNamespaces {
             .nextId(KryoNamespace.INITIAL_ID + BASIC_MAX_SIZE + MISC_MAX_SIZE)
             .register(
                     Instructions.MeterInstruction.class,
+                    Instructions.StatTriggerInstruction.class,
+                    StatTriggerFlag.class,
+                    StatTriggerField.class,
                     MeterId.class,
                     Version.class,
                     ControllerNode.State.class,
@@ -623,6 +630,7 @@ public final class KryoNamespaces {
                     PiActionParamId.class,
                     PiExactFieldMatch.class,
                     PiFieldMatch.class,
+                    PiGroupKey.class,
                     PiHeaderFieldId.class,
                     PiLpmFieldMatch.class,
                     PiMatchKey.class,
@@ -641,6 +649,8 @@ public final class KryoNamespaces {
                     PiCriterion.class,
                     PiInstruction.class
             )
+            .register(Upgrade.class)
+            .register(Upgrade.Status.class)
             .build("API");
 
     /**

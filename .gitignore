@@ -19,6 +19,7 @@ buck-out
 bucklets/plugins/
 .watchmanconfig
 .vscode
+*.fxs
 
 /bin/
 lib/yang
@@ -37,3 +38,5 @@ npm-debug.log
 sonar-project.properties
 
 out/
+
+bazel-*
