@@ -53,7 +53,8 @@ LABEL org.label-schema.name="ONOS" \
 # 8181 - GUI
 # 8101 - ONOS CLI
 # 9876 - ONOS intra-cluster communication
-EXPOSE 6653 6640 8181 8101 9876
+# 22 - ssh
+EXPOSE 6653 6640 8181 8101 9876 22
 
 # Get ready to run command
 ENTRYPOINT ["./bin/onos-service"]

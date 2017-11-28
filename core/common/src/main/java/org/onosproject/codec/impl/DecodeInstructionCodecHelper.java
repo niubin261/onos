@@ -651,14 +651,13 @@ public final class DecodeInstructionCodecHelper {
             return decodeL4();
         } else if (type.equals(Instruction.Type.EXTENSION.name())) {
             return decodeExtension();
-<<<<<<< HEAD
+
         } else if (type.equals(Instruction.Type.POFINSTRUCTION.name())) {
             return decodePof();
-||||||| merged common ancestors
-=======
+
         } else if (type.equals(Instruction.Type.STAT_TRIGGER.name())) {
             return decodeStatTrigger();
->>>>>>> 27fe1a5b0e4891e4719f947e10f01587e1f58519
+
         }
         throw new IllegalArgumentException("Instruction type "
                 + type + " is not supported");

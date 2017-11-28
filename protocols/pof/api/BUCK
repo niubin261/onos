@@ -1,6 +1,9 @@
 COMPILE_DEPS = [
     '//lib:CORE_DEPS',
+    '//lib:NETTY',
+    '//lib:netty-transport',
     '//lib:floodlightpof',
+    '//lib:netty',
 ]
 
 TEST_DEPS = [

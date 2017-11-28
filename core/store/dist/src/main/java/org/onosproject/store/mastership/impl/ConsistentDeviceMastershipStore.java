@@ -313,7 +313,6 @@ public class ConsistentDeviceMastershipStore
     }
 
     private class InternalDeviceMastershipEventListener implements LeadershipEventListener {
-
         @Override
         public boolean isRelevant(LeadershipEvent event) {
             Leadership leadership = event.subject();

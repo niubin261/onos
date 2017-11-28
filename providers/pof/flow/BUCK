@@ -2,6 +2,7 @@ COMPILE_DEPS = [
     '//lib:CORE_DEPS',
     '//lib:floodlightpof',
     '//protocols/pof/api:onos-protocols-pof-api',
+    '//core/api:onos-api'
 ]
 
 osgi_jar_with_tests (

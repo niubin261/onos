@@ -18,6 +18,7 @@ package org.onosproject.pof.controller.driver;
 
 import com.google.common.collect.Lists;
 import org.jboss.netty.channel.Channel;
+import io.netty.channel.*;
 import org.onlab.packet.IpAddress;
 import org.onosproject.floodlightpof.protocol.OFError;
 import org.onosproject.floodlightpof.protocol.OFFeaturesReply;

@@ -1191,6 +1191,10 @@ public class NewDistributedFlowTableStore
                             public <T> T decode(byte[] bytes) {
                                 return SERIALIZER.decode(bytes);
                             }
+                            @Override
+                            public <T> T copy(T object){
+                                return SERIALIZER.copy(object);
+                            }
                         })
                         .build());
             } else {
