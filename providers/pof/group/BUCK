@@ -3,7 +3,7 @@ COMPILE_DEPS = [
     '//lib:floodlightpof',
     '//protocols/pof/api:onos-protocols-pof-api',
     '//providers/pof/flow:onos-providers-pof-flow',
-    'netty',
+    '//lib:NETTY',
 ]
 
 osgi_jar_with_tests (

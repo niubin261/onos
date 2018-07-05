@@ -2,16 +2,14 @@ package org.onosproject.provider.pof.group.impl;
 
 import java.util.*;
 
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.common.collect.Maps;
+import org.apache.felix.scr.annotations.*;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
-import org.apache.felix.scr.annotations.Activate;
-import org.apache.felix.scr.annotations.Component;
-import org.apache.felix.scr.annotations.Deactivate;
-import org.apache.felix.scr.annotations.Reference;
-import org.apache.felix.scr.annotations.ReferenceCardinality;
+import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.floodlightpof.protocol.OFGroupMod;
 import org.onosproject.floodlightpof.protocol.OFMessage;
 import org.onosproject.floodlightpof.protocol.OFPortStatus;
@@ -24,6 +22,7 @@ import org.onosproject.net.group.*;
 import org.onosproject.net.provider.AbstractProvider;
 
 import org.onosproject.pof.controller.*;
+import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 import org.onosproject.core.GroupId;
 import org.onosproject.net.DeviceId;
@@ -46,6 +45,7 @@ import org.onosproject.net.group.StoredGroupBucketEntry;
 import org.onosproject.net.provider.AbstractProvider;
 import org.onosproject.net.provider.ProviderId;
 
+import static org.onlab.util.Tools.getIntegerProperty;
 import static org.slf4j.LoggerFactory.getLogger;
 
 @Component(immediate = true)
@@ -71,6 +71,19 @@ public class PofGroupProvider extends AbstractProvider implements GroupProvider 
     private GroupProviderService providerService;
     static final int POLL_INTERVAL = 10;
 
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ComponentConfigService cfgService;
+
+    private static final int DEFAULT_POLL_INTERVAL = 10;
+    private static final String COMPONENT = "org.onosproject.provider.pof.group.impl.PofGroupProvider";
+    private static final String GROUP_POLL_INTERVAL_CONST = "groupPollInterval";
+
+    @Property(name = "groupPollInterval", intValue = DEFAULT_POLL_INTERVAL,
+            label = "Frequency (in seconds) for polling group statistics")
+    private int groupPollInterval = DEFAULT_POLL_INTERVAL;
+
+
     private final InternalGroupProvider listener = new InternalGroupProvider();
 
     private static final AtomicLong XID_COUNTER = new AtomicLong(1);
@@ -83,6 +96,7 @@ public class PofGroupProvider extends AbstractProvider implements GroupProvider 
     private final Map<GroupId, Long> pendingXidMaps = Maps.newConcurrentMap();
 
     public PofGroupProvider() {
+
         super(new ProviderId("pof", "org.onosproject.provider.pof.group"));
     }
 
@@ -92,6 +106,8 @@ public class PofGroupProvider extends AbstractProvider implements GroupProvider 
 
     @Activate
     public void activate() {
+        log.info("provider register now");
+        cfgService.registerProperties(getClass());
         providerService = providerRegistry.register(this);
         controller.addListener(listener);
         controller.addEventListener(listener);
@@ -104,9 +120,19 @@ public class PofGroupProvider extends AbstractProvider implements GroupProvider 
     }
     @Deactivate
     public void deactivate() {
+        cfgService.unregisterProperties(getClass(), false);
         providerRegistry.unregister(this);
         providerService = null;
         log.info("Stopped");
+    }
+    @Modified
+    public void modified(ComponentContext context) {
+        log.info("Modifield");
+    }
+
+    private void modifyPollInterval() {
+
+
     }
     @Override
     public void performGroupOperation(DeviceId deviceId, GroupOperations groupOps) {
@@ -127,7 +153,7 @@ public class PofGroupProvider extends AbstractProvider implements GroupProvider 
                         sw.factory(),
                         Optional.of(groupModXid));
             } else {
-                // chuang di
+
                 builder = GroupModBuilder.builder(groupOperation.buckets(),
                         groupOperation.groupId(),
                         groupOperation.groupType(),
@@ -138,7 +164,7 @@ public class PofGroupProvider extends AbstractProvider implements GroupProvider 
             OFGroupMod groupMod = null;
             switch (groupOperation.opType()) {
                 case ADD:
-                    //jiexi & zuhe
+
                     groupMod = builder.buildGroupAdd();
                     break;
                 case MODIFY:
@@ -151,6 +177,7 @@ public class PofGroupProvider extends AbstractProvider implements GroupProvider 
                     log.error("Unsupported Group operation");
                     return;
             }
+            log.info("The groupMod : {}",groupMod.toString());
             sw.sendMsg(groupMod);
             GroupId groudId = new GroupId(groupMod.getGroupId());
             pendingGroupOperations.put(groudId, groupOperation);
