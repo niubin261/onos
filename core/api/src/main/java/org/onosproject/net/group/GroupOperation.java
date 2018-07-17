@@ -148,6 +148,20 @@ public final class GroupOperation {
         return new GroupOperation(Type.DELETE, groupId, groupType, null);
 
     }
+    /**
+     * Creates DELETE group operation object.
+     *
+     * @param groupId group Identifier
+     * @param groupType type of the group
+     * @param groupBuckets immutable list of group buckets to be part of group
+     * @return delete group operation object
+     */
+
+    public static GroupOperation createDeleteGroupOperation(GroupId groupId,
+                                  GroupDescription.Type groupType, GroupBuckets groupBuckets) {
+        checkNotNull(groupBuckets);
+        return new GroupOperation(Type.DELETE, groupId, groupType, groupBuckets);
+    }
 
     /**
      * Creates failure group operation object by setting failure code
@@ -240,5 +254,10 @@ public final class GroupOperation {
 
         }
         return false;
+    }
+
+    @Override
+    public String toString() {
+        return super.toString();
     }
 }
